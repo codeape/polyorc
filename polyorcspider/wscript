@@ -1,0 +1,17 @@
+
+def configure(ctx):
+    print("polyorc configure")
+    ctx.libckok('libcurl', 'curl/curl.h')
+    ctx.libckok('argp', 'argp.h')
+    ctx.write_config_header('config.h')
+
+def build(ctx):
+    ctx.program(
+        source      = 'main.c spider.c',
+        target      = 'polyorcspider',
+        includes    = '.',
+        lib         = ['curl', 'argp'],
+        libpath     = ['/usr/lib', '/usr/local/lib'],
+        cflags      = [ '-Wall', '-g' ],
+        use         = 'intern_polyorclib'
+    )
