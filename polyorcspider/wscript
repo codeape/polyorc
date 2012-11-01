@@ -4,6 +4,7 @@ def configure(ctx):
     ctx.libckok('libcurl', 'curl/curl.h')
     ctx.libckok('libev', 'ev.h')
     ctx.libckok('argp', 'argp.h')
+    ctx.define('ORC_NAME', "polyorcspider")
     ctx.write_config_header('config.h')
 
 def build(ctx):

@@ -1,5 +1,6 @@
 from waflib.Configure import conf
 
+APPNAME = 'polyorc'
 VERSION = '0.0.1'
 BUG_ADDRESS = "some git hub link"
 

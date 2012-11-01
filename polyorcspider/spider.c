@@ -1,4 +1,5 @@
 #include "spider.h"
+#include "common.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,6 +40,8 @@ struct ConnInfo {
     CURL *easy;
     char *url;
     struct SpiderGlobalInfo *global;
+    char *memory;
+    size_t memory_size;
     char error[CURL_ERROR_SIZE];
 };
 
@@ -94,12 +97,14 @@ static void check_multi_info(struct SpiderGlobalInfo *g) {
             curl_easy_getinfo(easy, CURLINFO_PRIVATE, &conn);
             curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &eff_url);
             printf("DONE: %s => (%d) %s\n", eff_url, res, conn->error);
+            printf("%s", conn->memory);
+            // Analyze
             curl_multi_remove_handle(g->multi, easy);
             free(conn->url);
-            // create new readers here?
-            // free read memmory here
+            free(conn->memory);
             curl_easy_cleanup(easy);
             free(conn);
+            // create new readers here?
         }
     }
 }
@@ -209,14 +214,23 @@ static int sock_cb(CURL *e, curl_socket_t s, int what, void *cbp, void *sockp) {
 }
 
 /* CURLOPT_WRITEFUNCTION */
-static size_t write_cb(void *ptr, size_t size, size_t nmemb, void *data) {
+static size_t write_cb(void *contents, size_t size, size_t nmemb, void *data) {
     size_t realsize = size * nmemb;
     struct ConnInfo *conn = (struct ConnInfo *)data;
-    (void)ptr;
-    (void)conn;
+
+    conn->memory = realloc(conn->memory, conn->memory_size + realsize + 1);
+    if (conn->memory == NULL) {
+        /* out of memory! */
+        printf("not enough memory (realloc returned NULL)\n");
+        exit(EXIT_FAILURE);
+    }
+
+    memcpy(&(conn->memory[conn->memory_size]), contents, realsize);
+    conn->memory_size += realsize;
+    conn->memory[conn->memory_size] = 0;
+
     return realsize;
 }
-
 
 /* CURLOPT_PROGRESSFUNCTION */
 static int prog_cb(void *p, double dltotal, double dlnow, double ult,
@@ -225,30 +239,36 @@ static int prog_cb(void *p, double dltotal, double dlnow, double ult,
     (void)ult;
     (void)uln;
 
-    printf("Progress: %s (%g/%g)\n", conn->url, dlnow, dltotal);
+    if (dlnow > 0 && dltotal > 0) {
+        printf("Progress: %s (%g/%g)\n", conn->url, dlnow, dltotal);
+    }
     return 0;
 }
 
 /* Create a new easy handle, and add it to the global curl_multi */
 static void new_conn(char *url, struct SpiderGlobalInfo *g) {
-    struct ConnInfo *conn;
     CURLMcode rc;
+    struct ConnInfo *conn;
+
 
     conn = calloc(1, sizeof(struct ConnInfo));
     memset(conn, 0, sizeof(struct ConnInfo));
-    conn->error[0] = '\0';
 
+    conn->error[0] = '\0';
     conn->easy = curl_easy_init();
     if (!conn->easy) {
         printf("curl_easy_init() failed, exiting!\n");
         exit(EXIT_FAILURE);
     }
 
+    conn->memory = malloc(1);
+    conn->memory_size = 0;
+
     conn->global = g;
     conn->url = strdup(url);
     curl_easy_setopt(conn->easy, CURLOPT_URL, conn->url);
     curl_easy_setopt(conn->easy, CURLOPT_WRITEFUNCTION, write_cb);
-    curl_easy_setopt(conn->easy, CURLOPT_WRITEDATA, &conn);
+    curl_easy_setopt(conn->easy, CURLOPT_WRITEDATA, conn);
     curl_easy_setopt(conn->easy, CURLOPT_VERBOSE, 1L);
     curl_easy_setopt(conn->easy, CURLOPT_ERRORBUFFER, conn->error);
     curl_easy_setopt(conn->easy, CURLOPT_PRIVATE, conn);
@@ -257,6 +277,7 @@ static void new_conn(char *url, struct SpiderGlobalInfo *g) {
     curl_easy_setopt(conn->easy, CURLOPT_PROGRESSDATA, conn);
     curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_TIME, 3L);
     curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_LIMIT, 10L);
+    curl_easy_setopt(conn->easy, CURLOPT_USERAGENT, ORC_USERAGENT);
 
     printf("Adding easy %p to multi %p (%s)\n", conn->easy, g->multi, url);
     rc = curl_multi_add_handle(g->multi, conn->easy);
