@@ -1,0 +1,9 @@
+def build(ctx):
+    ctx.program(
+        source      = 'main.c',
+        target      = 'polyorcboss',
+        includes    = '.',
+        libpath     = ['/usr/lib', '/usr/local/lib'],
+        cflags      = [ '-Wall', '-g' ],
+        use         = 'intern_polyorclib'
+    )
