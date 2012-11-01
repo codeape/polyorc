@@ -11,7 +11,7 @@
     char **urls = 0;
     int urls_len = 0;
     if(-1 == (urls_len = find_urls(chunk.memory, arg.excludes, 
-                       arg.excludes_len, &urls_len, &urls)))
+                       arg.excludes_len, &urls, &urls_len)))
     {
         if (0 != urls_len) {
             free_array_of_charptr_incl(&urls, urls_len);

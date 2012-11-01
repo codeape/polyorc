@@ -7,6 +7,7 @@
 #include <string.h>
 #include <errno.h>
 
+/* Prints regexp errors */
 void _orc_match_regerror(int errcode, const regex_t *preg, const char *pattern)
 {
     size_t errbuff_len = regerror(errcode, preg, 0, 0);
@@ -16,8 +17,23 @@ void _orc_match_regerror(int errcode, const regex_t *preg, const char *pattern)
     free(errbuff);
 }
 
+/**
+ * Searches a buffer for html links by looking for href and src
+ * attributes.
+ *
+ * @author Oscar Norlander
+ *
+ * @param html The buffer containing html.
+ * @param excludes Regex exclude patterns
+ * @param excludes_len The number of exclude patterns
+ * @param ret The return buffer.
+ * @param ret_len The max number of returns the return buffer
+ *                currently suport.*
+ *
+ * @return int The number of urls found.
+ */
 int find_urls(char *html, char **excludes, int excludes_len,
-              int *ret_len, char ***ret)
+              char ***ret, int *ret_len)
 {
     char *current = html;
 
@@ -46,7 +62,6 @@ int find_urls(char *html, char **excludes, int excludes_len,
         }
 
         // Find all links
-        
         while (REG_NOMATCH != (status = regexec(&regex, current, 2, pmatch, 0)))
         {
             if (0 != status) {
@@ -71,7 +86,7 @@ int find_urls(char *html, char **excludes, int excludes_len,
                                              excludes[j],
                                              REG_EXTENDED);
                     if (0 != status_exclude) {
-                        _orc_match_regerror(status_exclude, &regex_exclude, 
+                        _orc_match_regerror(status_exclude, &regex_exclude,
                                             find_pattern);
                         regfree(&regex_exclude);
                         regfree(&regex);
@@ -97,15 +112,14 @@ int find_urls(char *html, char **excludes, int excludes_len,
                     free(str);
                 } else {
                     url_count++;
-                    //printf("include   %s\n", str);
                     char **tmp = 0;
                     if (url_count  > (*ret_len)) {
-                        tmp = realloc((*ret), 
+                        tmp = realloc((*ret),
                                       url_count * sizeof(**ret));
                     }
                     if (0 == tmp) {
-                        fprintf(stderr,
-                                "ERROR: aaa %s (%d)\n", strerror(errno), errno);
+                        fprintf(stderr, "ERROR: %s (%d)\n",
+                                strerror(errno), errno);
                         regfree(&regex);
                         free(str);
                         return -1;

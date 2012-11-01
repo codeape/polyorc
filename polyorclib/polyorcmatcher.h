@@ -8,6 +8,6 @@ struct orc_match {
 };
 
 int find_urls(char *html, char **excludes, int excludes_len,
-              int *ret_len, char ***ret);
+              char ***ret, int *ret_len);
 
 #endif
