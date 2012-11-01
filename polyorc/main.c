@@ -1,3 +1,20 @@
+/*
+ Originally created by Oscar Norlander (codeape)
+ ...................................................................
+ @@@@@@@    @@@@@@   @@@       @@@ @@@   @@@@@@   @@@@@@@    @@@@@@@
+ @@@@@@@@  @@@@@@@@  @@@       @@@ @@@  @@@@@@@@  @@@@@@@@  @@@@@@@@
+ @@!  @@@  @@!  @@@  @@!       @@! !@@  @@!  @@@  @@!  @@@  !@@
+ !@!  @!@  !@!  @!@  !@!       !@! @!!  !@!  @!@  !@!  @!@  !@!
+ @!@@!@!   @!@  !@!  @!!        !@!@!   @!@  !@!  @!@!!@!   !@!
+ !!@!!!    !@!  !!!  !!!         @!!!   !@!  !!!  !!@!@!    !!!
+ !!:       !!:  !!!  !!:         !!:    !!:  !!!  !!: :!!   :!!
+ :!:       :!:  !:!   :!:        :!:    :!:  !:!  :!:  !:!  :!:
+  ::       ::::: ::   :: ::::     ::    ::::: ::  ::   :::   ::: :::
+  :         : :  :   : :: : :     :      : :  :    :   : :   :: :: :
+ ...................................................................
+ Polyorc is under BSD 2-Clause License (see LICENSE file)
+*/
+
 #include <stdlib.h>
 #include <argp.h>
 #include <stdio.h>
@@ -58,7 +75,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
         if (arguments->adminport < 1 ||
             arguments->adminport > (intpow(2, 16) - 1))
         {
-            fprintf(stderr, 
+            fprintf(stderr,
                     "Admin port set to a value outside range %d to %d.\n",
                     1,
                     (intpow(2,16) - 1));
