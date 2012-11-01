@@ -34,7 +34,7 @@ int * create_int_key(int key) {
 void test_polyorcbintree() {
     printf("test_polyorcbintree ");
 
-    struct bintree_root strroot;
+    bintree_root strroot;
     bintree_init(&strroot, bintree_streq, free_tree);
 
     char keys[] = {'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o',
