@@ -22,6 +22,7 @@
 #include "spider.h"
 #include "common.h"
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -48,12 +49,20 @@
     free_array_of_charptr_incl(&urls, urls_len);
 */
 
+/* A url fifo node*/
+typedef struct _url_node {
+   char *url;
+   struct _url_node *next;
+} url_node;
+
 /* Global information, common to all connections */
 typedef struct _global_info {
     struct ev_loop *loop;
     struct ev_timer timer_event;
     int still_running;
     CURLM *multi;
+    url_node *url_out;
+    url_node *url_in;
 } global_info;
 
 /* Information associated with a specific easy handle */
@@ -76,6 +85,36 @@ typedef struct _sock_info {
     int evset;
     global_info *global;
 } sock_info;
+
+/* Adds a url to the head of the fifo */
+static void url_add(global_info *global, char *url) {
+   url_node *newnode = calloc(1, sizeof(url_node));
+   if (0 == newnode) {
+      fprintf(stderr, "ERROR: %s (%d)\n", strerror(errno), errno);
+      exit(EXIT_FAILURE);
+   }
+   newnode->url = url;
+   if (0 == global->url_out) {
+      // The empty list 
+      global->url_out = newnode;
+      global->url_in = newnode;
+   } else {
+      global->url_in->next = newnode;
+      global->url_in = newnode;
+   }
+}
+
+/* Fetches a url from the tail of the fifo */
+static char * url_get(global_info *global) {
+   if (0 == global->url_out) {
+      return 0;
+   }
+   url_node *old = global->url_out;
+   global->url_out = global->url_out->next;
+   char *ret = old->url;
+   free(old);
+   return ret;
+}
 
 /* Die if we get a bad CURLMcode somewhere */
 static void mcode_or_die(const char *where, CURLMcode code) {
@@ -309,24 +348,25 @@ static void new_conn(char *url, global_info *g) {
 }
 
 void crawl(struct arguments *arg) {
-    global_info global_info;
+    global_info global;
+    memset(&global, 0, sizeof(global_info));
 
     /* Init before looping starts */
-    global_info.loop = ev_default_loop(0);
-    global_info.multi = curl_multi_init();
-    ev_timer_init(&(global_info.timer_event), socket_action_timer_cb, 0., 0.);
-    global_info.timer_event.data = &global_info;
-    curl_multi_setopt(global_info.multi, CURLMOPT_TIMERFUNCTION, multi_timer_cb);
-    curl_multi_setopt(global_info.multi, CURLMOPT_TIMERDATA, &global_info);
-    curl_multi_setopt(global_info.multi, CURLMOPT_SOCKETFUNCTION, sock_cb);
-    curl_multi_setopt(global_info.multi, CURLMOPT_SOCKETDATA, &global_info);
+    global.loop = ev_default_loop(0);
+    global.multi = curl_multi_init();
+    ev_timer_init(&(global.timer_event), socket_action_timer_cb, 0., 0.);
+    global.timer_event.data = &global;
+    curl_multi_setopt(global.multi, CURLMOPT_TIMERFUNCTION, multi_timer_cb);
+    curl_multi_setopt(global.multi, CURLMOPT_TIMERDATA, &global);
+    curl_multi_setopt(global.multi, CURLMOPT_SOCKETFUNCTION, sock_cb);
+    curl_multi_setopt(global.multi, CURLMOPT_SOCKETDATA, &global);
 
-    new_conn(arg->url, &global_info);
+    new_conn(arg->url, &global);
 
     /* Lets loop */
-    ev_loop(global_info.loop, 0);
+    ev_loop(global.loop, 0);
 
     /* Cleanups after looping */
-    curl_multi_cleanup(global_info.multi);
+    curl_multi_cleanup(global.multi);
 }
 
