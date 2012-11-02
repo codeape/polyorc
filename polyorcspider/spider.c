@@ -141,132 +141,140 @@ static void mcode_or_die(const char *where, CURLMcode code) {
 }
 
 /* Check for completed transfers, and remove their easy handles */
-static void check_multi_info(global_info *g) {
-    char *eff_url;
+static void check_multi_info(global_info *global) {
+    conn_info *conn;
+    char *effective_url;
+    CURL *easy;
+    CURLcode result;
     CURLMsg *msg;
     int msgs_left;
-    conn_info *conn;
-    CURL *easy;
-    CURLcode res;
 
-    printf("REMAINING: %d\n", g->still_running);
-    while ((msg = curl_multi_info_read(g->multi, &msgs_left))) {
+    printf("REMAINING: %d\n", global->still_running);
+    while ((msg = curl_multi_info_read(global->multi, &msgs_left))) {
         if (msg->msg == CURLMSG_DONE) {
             easy = msg->easy_handle;
-            res = msg->data.result;
+            result = msg->data.result;
+            // Retrive the connection info for a handle
             curl_easy_getinfo(easy, CURLINFO_PRIVATE, &conn);
-            curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &eff_url);
-            printf("DONE: %s => (%d) %s\n", eff_url, res, conn->error);
+            curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &effective_url);
+            printf("DONE: %s => (%d) %s\n", effective_url, result, conn->error);
             printf("%s", conn->memory);
-            // Analyze
-            curl_multi_remove_handle(g->multi, easy);
+            // Cleanup the finished easy handle
+            curl_multi_remove_handle(global->multi, easy);
+            curl_easy_cleanup(easy);
+            // Analyze here
             free(conn->url);
             free(conn->memory);
-            curl_easy_cleanup(easy);
             free(conn);
-            // create new readers here?
+            // Create new readers here 
         }
     }
 }
 
 /* Called by libevent when our "wait for socket actions" timeout expires */
 static void socket_action_timer_cb(EV_P_ struct ev_timer *timer, int revents) {
-    global_info *g = (global_info *)timer->data;
+    global_info *global = (global_info *)timer->data;
     CURLMcode rc;
 
     /* Do the timeout action */
-    rc = curl_multi_socket_action(g->multi, CURL_SOCKET_TIMEOUT, 0,
-                                  &g->still_running);
+    rc = curl_multi_socket_action(global->multi, CURL_SOCKET_TIMEOUT, 0,
+                                  &global->still_running);
     mcode_or_die("socket_action_timer_cb: curl_multi_socket_action", rc);
-    check_multi_info(g);
+    check_multi_info(global);
 }
 
 /* Update the event timer ("wait for socket actions") after curl_multi library
    calls */
-static int multi_timer_cb(CURLM *multi, long timeout_ms, global_info *g) {
-    ev_timer_stop(g->loop, &g->timer_event);
+static int multi_timer_cb(CURLM *multi, long timeout_ms, global_info *global) {
+    ev_timer_stop(global->loop, &global->timer_event);
     if (timeout_ms > 0) {
         double  t = timeout_ms / 1000;
-        ev_timer_init(&g->timer_event, socket_action_timer_cb, t, 0.);
-        ev_timer_start(g->loop, &g->timer_event);
+        ev_timer_init(&global->timer_event, socket_action_timer_cb, t, 0.);
+        ev_timer_start(global->loop, &global->timer_event);
     } else {
-        socket_action_timer_cb(g->loop, &g->timer_event, 0);
+        socket_action_timer_cb(global->loop, &global->timer_event, 0);
     }
     return 0;
 }
 
 /* Called by libevent when we get action on a multi socket */
-static void event_cb(EV_P_ struct ev_io *w, int revents) {
-    global_info *g = (global_info *)w->data;
+static void event_cb(EV_P_ struct ev_io *event_io, int revents) {
+    global_info *global = (global_info *)event_io->data;
     CURLMcode rc;
 
     int action = (revents & EV_READ ? CURL_POLL_IN : 0) |
           (revents & EV_WRITE ? CURL_POLL_OUT : 0);
-    rc = curl_multi_socket_action(g->multi, w->fd, action, &g->still_running);
+    rc = curl_multi_socket_action(global->multi, event_io->fd, action,
+                                  &global->still_running);
     mcode_or_die("event_cb: curl_multi_socket_action", rc);
-    check_multi_info(g);
-    if (g->still_running <= 0) {
+    check_multi_info(global);
+    if (global->still_running <= 0) {
         printf("last transfer done, kill timeout\n");
-        ev_timer_stop(g->loop, &g->timer_event);
+        ev_timer_stop(global->loop, &global->timer_event);
     }
 }
 
 /* Clean up the SockInfo structure */
-static void remsock(sock_info *f, global_info *g) {
-    if (f) {
-        if (f->evset) {
-            ev_io_stop(g->loop, &f->ev);
+static void remsock(sock_info *soc, global_info *global) {
+    if (soc) {
+        if (soc->evset) {
+            ev_io_stop(global->loop, &soc->ev);
         }
-        free(f);
+        free(soc);
     }
 }
 
 /* Assign information to a SockInfo structure */
-static void setsock(sock_info *f, curl_socket_t s, CURL *e, int act,
-                    global_info *g)
+static void setsock(sock_info *soc, curl_socket_t curl_soc, CURL *handle,
+                    int action, global_info *global)
 {
-    int kind = (act & CURL_POLL_IN ? EV_READ : 0) |
-          (act & CURL_POLL_OUT ? EV_WRITE : 0);
+    int kind = (action & CURL_POLL_IN ? EV_READ : 0) |
+          (action & CURL_POLL_OUT ? EV_WRITE : 0);
 
-    f->sockfd = s;
-    f->action = act;
-    f->easy = e;
-    if (f->evset) {
-        ev_io_stop(g->loop, &f->ev);
+    soc->sockfd = curl_soc;
+    soc->action = action;
+    soc->easy = handle;
+    if (soc->evset) {
+        ev_io_stop(global->loop, &soc->ev);
     }
-    ev_io_init(&f->ev, event_cb, f->sockfd, kind);
-    f->ev.data = g;
-    f->evset = 1;
-    ev_io_start(g->loop, &f->ev);
+    ev_io_init(&soc->ev, event_cb, soc->sockfd, kind);
+    soc->ev.data = global;
+    soc->evset = 1;
+    ev_io_start(global->loop, &soc->ev);
 }
 
 /* Initialize a new SockInfo structure */
-static void addsock(curl_socket_t s, CURL *easy, int action, global_info *g) {
-    sock_info *fdp = calloc(sizeof(sock_info), 1);
+static void addsock(curl_socket_t curl_soc, CURL *handle, int action,
+                    global_info *global)
+{
+    sock_info *soc = calloc(sizeof(sock_info), 1);
 
-    fdp->global = g;
-    setsock(fdp, s, easy, action, g);
-    curl_multi_assign(g->multi, s, fdp);
+    soc->global = global;
+    setsock(soc, curl_soc, handle, action, global);
+    curl_multi_assign(global->multi, curl_soc, soc);
 }
 
 /* Notifies about updates on a socket file descriptor */
-static int sock_cb(CURL *e, curl_socket_t s, int what, void *cbp, void *sockp) {
-    global_info *g = (global_info *)cbp;
-    sock_info *fdp = (sock_info *)sockp;
+static int sock_cb(CURL *handle, curl_socket_t curl_soc, int what, void *cbp,
+                   void *sockp)
+{
+    global_info *global = (global_info *)cbp;
+    sock_info *soc = (sock_info *)sockp;
     const char *whatstr[] = { "none", "IN", "OUT", "INOUT", "REMOVE" };
 
-    printf("socket callback: s=%d e=%p what=%s ", s, e, whatstr[what]);
+    printf("socket callback: s=%d e=%p what=%s ",
+           curl_soc, handle, whatstr[what]);
     if (what == CURL_POLL_REMOVE) {
         printf("\n");
-        remsock(fdp, g);
+        remsock(soc, global);
     } else {
-        if (!fdp) {
+        if (!soc) {
             printf("Adding data: %s\n", whatstr[what]);
-            addsock(s, e, what, g);
+            addsock(curl_soc, handle, what, global);
         } else {
             printf("Changing action from %s to %s\n",
-                   whatstr[fdp->action], whatstr[what]);
-            setsock(fdp, s, e, what, g);
+                   whatstr[soc->action], whatstr[what]);
+            setsock(soc, curl_soc, handle, what, global);
         }
     }
     return 0;
@@ -278,9 +286,9 @@ static size_t write_cb(void *contents, size_t size, size_t nmemb, void *data) {
     conn_info *conn = (conn_info *)data;
 
     conn->memory = realloc(conn->memory, conn->memory_size + realsize + 1);
-    if (conn->memory == NULL) {
+    if (0 == conn->memory) {
         /* out of memory! */
-        printf("not enough memory (realloc returned NULL)\n");
+        fprintf(stderr, "ERROR: %s (%d)\n", strerror(errno), errno);
         exit(EXIT_FAILURE);
     }
 
@@ -292,10 +300,10 @@ static size_t write_cb(void *contents, size_t size, size_t nmemb, void *data) {
 }
 
 /* CURLOPT_PROGRESSFUNCTION */
-static int prog_cb(void *p, double dltotal, double dlnow, double ult,
+static int prog_cb(void *data, double dltotal, double dlnow, double ult,
                    double uln)
 {
-    conn_info *conn = (conn_info *)p;
+    conn_info *conn = (conn_info *)data;
     (void)ult;
     (void)uln;
 
@@ -306,10 +314,9 @@ static int prog_cb(void *p, double dltotal, double dlnow, double ult,
 }
 
 /* Create a new easy handle, and add it to the global curl_multi */
-static void new_conn(char *url, global_info *g) {
+static void new_conn(char *url, global_info *global) {
     CURLMcode rc;
     conn_info *conn;
-
 
     conn = calloc(1, sizeof(conn_info));
     memset(conn, 0, sizeof(conn_info));
@@ -324,7 +331,7 @@ static void new_conn(char *url, global_info *g) {
     conn->memory = malloc(1);
     conn->memory_size = 0;
 
-    conn->global = g;
+    conn->global = global;
     conn->url = strdup(url);
     curl_easy_setopt(conn->easy, CURLOPT_URL, conn->url);
     curl_easy_setopt(conn->easy, CURLOPT_WRITEFUNCTION, write_cb);
@@ -339,8 +346,8 @@ static void new_conn(char *url, global_info *g) {
     curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_LIMIT, 10L);
     curl_easy_setopt(conn->easy, CURLOPT_USERAGENT, ORC_USERAGENT);
 
-    printf("Adding easy %p to multi %p (%s)\n", conn->easy, g->multi, url);
-    rc = curl_multi_add_handle(g->multi, conn->easy);
+    printf("Adding easy %p to multi %p (%s)\n", conn->easy, global->multi, url);
+    rc = curl_multi_add_handle(global->multi, conn->easy);
     mcode_or_die("new_conn: curl_multi_add_handle", rc);
 
     /* note that the add_handle() will set a time-out to trigger very soon so
