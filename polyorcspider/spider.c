@@ -178,7 +178,7 @@ static void socket_action_timer_cb(EV_P_ struct ev_timer *timer, int revents) {
 
     /* Do the timeout action */
     rc = curl_multi_socket_action(global->multi, CURL_SOCKET_TIMEOUT, 0,
-                                  &global->still_running);
+                                  &(global->still_running));
     mcode_or_die("socket_action_timer_cb: curl_multi_socket_action", rc);
     check_multi_info(global);
 }
@@ -186,13 +186,13 @@ static void socket_action_timer_cb(EV_P_ struct ev_timer *timer, int revents) {
 /* Update the event timer ("wait for socket actions") after curl_multi library
    calls */
 static int multi_timer_cb(CURLM *multi, long timeout_ms, global_info *global) {
-    ev_timer_stop(global->loop, &global->timer_event);
+    ev_timer_stop(global->loop, &(global->timer_event));
     if (timeout_ms > 0) {
         double  t = timeout_ms / 1000;
-        ev_timer_init(&global->timer_event, socket_action_timer_cb, t, 0.);
-        ev_timer_start(global->loop, &global->timer_event);
+        ev_timer_init(&(global->timer_event), socket_action_timer_cb, t, 0.);
+        ev_timer_start(global->loop, &(global->timer_event));
     } else {
-        socket_action_timer_cb(global->loop, &global->timer_event, 0);
+        socket_action_timer_cb(global->loop, &(global->timer_event), 0);
     }
     return 0;
 }
@@ -205,12 +205,12 @@ static void event_cb(EV_P_ struct ev_io *event_io, int revents) {
     int action = (revents & EV_READ ? CURL_POLL_IN : 0) |
           (revents & EV_WRITE ? CURL_POLL_OUT : 0);
     rc = curl_multi_socket_action(global->multi, event_io->fd, action,
-                                  &global->still_running);
+                                  &(global->still_running));
     mcode_or_die("event_cb: curl_multi_socket_action", rc);
     check_multi_info(global);
     if (global->still_running <= 0) {
         printf("last transfer done, kill timeout\n");
-        ev_timer_stop(global->loop, &global->timer_event);
+        ev_timer_stop(global->loop, &(global->timer_event));
     }
 }
 
@@ -218,7 +218,7 @@ static void event_cb(EV_P_ struct ev_io *event_io, int revents) {
 static void remsock(sock_info *soc, global_info *global) {
     if (soc) {
         if (soc->evset) {
-            ev_io_stop(global->loop, &soc->ev);
+            ev_io_stop(global->loop, &(soc->ev));
         }
         free(soc);
     }
@@ -235,12 +235,12 @@ static void setsock(sock_info *soc, curl_socket_t curl_soc, CURL *handle,
     soc->action = action;
     soc->easy = handle;
     if (soc->evset) {
-        ev_io_stop(global->loop, &soc->ev);
+        ev_io_stop(global->loop, &(soc->ev));
     }
-    ev_io_init(&soc->ev, event_cb, soc->sockfd, kind);
+    ev_io_init(&(soc->ev), event_cb, soc->sockfd, kind);
     soc->ev.data = global;
     soc->evset = 1;
-    ev_io_start(global->loop, &soc->ev);
+    ev_io_start(global->loop, &(soc->ev));
 }
 
 /* Initialize a new SockInfo structure */
@@ -370,7 +370,7 @@ void crawl(struct arguments *arg) {
 
     new_conn(arg->url, &global);
 
-    /* Lets loop */
+    /* Lets find some urls */
     ev_loop(global.loop, 0);
 
     /* Cleanups after looping */
