@@ -20,6 +20,6 @@
 
 #include "common.h"
 
-void crawl(struct arguments *arg);
+void crawl(arguments *arg);
 
 #endif

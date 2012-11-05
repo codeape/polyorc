@@ -48,37 +48,37 @@ static struct argp_option options[] = {
 };
 
 /* Parse a single option. */
-static error_t parse_opt(int key, char *arg, struct argp_state *state)
+static error_t parse_opt(int key, char *opt_arg, struct argp_state *state)
 {
     /* Get the input argument from argp_parse, which we
        know is a pointer to our arguments structure. */
-    struct arguments *arguments = state->input;
+    arguments *arg = state->input;
 
     switch (key) {
     case 'q':
-        arguments->silent = 1;
+        arg->silent = 1;
         break;
     case 'v':
-        arguments->verbose = 1;
+        arg->verbose = 1;
         break;
     case 1001:
-        arguments->excludes_len++;
-        size_t size = arguments->excludes_len * sizeof(*(arguments->excludes));
+        arg->excludes_len++;
+        size_t size = arg->excludes_len * sizeof(*(arg->excludes));
         char **tmp;
-        tmp = realloc(arguments->excludes, size);
+        tmp = realloc(arg->excludes, size);
         if (0 == tmp) {
             fprintf(stderr, "ERROR: %s (%d)\n", strerror(errno), errno);
             exit(EXIT_FAILURE);
         }
-        tmp[arguments->excludes_len - 1] = arg;
-        arguments->excludes = tmp;
+        tmp[arg->excludes_len - 1] = opt_arg;
+        arg->excludes = tmp;
         break;
     case ARGP_KEY_ARG:
         if (state->arg_num > 1) {
             /* Too many arguments. */
             argp_usage(state);
         }
-        arguments->url = arg;
+        arg->url = opt_arg;
         break;
     case ARGP_KEY_END:
         if (state->arg_num < 1) {
@@ -101,7 +101,7 @@ static struct argp argp = { options, parse_opt, args_doc, doc };
 
 int main(int argc, char *argv[])
 {
-    struct arguments arg;
+    arguments arg;
 
     /* Default values. */
     arg.silent = 0;

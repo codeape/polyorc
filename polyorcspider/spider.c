@@ -20,7 +20,9 @@
 */
 
 #include "spider.h"
-#include "common.h"
+#include "polyorcbintree.h"
+#include "polyorcutils.h"
+#include "polyorcmatcher.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -55,14 +57,22 @@ typedef struct _url_node {
    struct _url_node *next;
 } url_node;
 
+typedef struct _url_info {
+    int found_count;
+} url_info;
+
 /* Global information, common to all connections */
 typedef struct _global_info {
     struct ev_loop *loop;
     struct ev_timer timer_event;
     int still_running;
     CURLM *multi;
+    arguments *arg;
     url_node *url_out;
     url_node *url_in;
+    bintree_root url_tree;
+    char **urls_list;
+    int urls_list_len;
 } global_info;
 
 /* Information associated with a specific easy handle */
@@ -95,7 +105,7 @@ static void url_add(global_info *global, char *url) {
    }
    newnode->url = url;
    if (0 == global->url_out) {
-      // The empty list 
+      // The empty list
       global->url_out = newnode;
       global->url_in = newnode;
    } else {
@@ -140,6 +150,26 @@ static void mcode_or_die(const char *where, CURLMcode code) {
     }
 }
 
+static void analyze_page(global_info *global, char *page) {
+    int matches = 0;
+    if(-1 == (matches = find_urls(page, global->arg->excludes,
+                                  global->arg->excludes_len,
+                                  &(global->urls_list),
+                                  &(global->urls_list_len))))
+    {
+        if (0 != global->urls_list_len) {
+            free_array_of_charptr_incl(&(global->urls_list),
+                                       global->urls_list_len);
+        }
+        exit(EXIT_FAILURE);
+    }
+
+    int i;
+    for (i = 0; i < matches; i++) {
+        printf("%s\n", global->urls_list[i]);
+    }
+}
+
 /* Check for completed transfers, and remove their easy handles */
 static void check_multi_info(global_info *global) {
     conn_info *conn;
@@ -163,10 +193,11 @@ static void check_multi_info(global_info *global) {
             curl_multi_remove_handle(global->multi, easy);
             curl_easy_cleanup(easy);
             // Analyze here
+            analyze_page(global, conn->memory);
             free(conn->url);
             free(conn->memory);
             free(conn);
-            // Create new readers here 
+            // Create new readers here
         }
     }
 }
@@ -354,11 +385,21 @@ static void new_conn(char *url, global_info *global) {
        that the necessary socket_action() call will be called by this app */
 }
 
-void crawl(struct arguments *arg) {
+static void free_tree(void **key, void **value, const enum free_cmd cmd) {
+    free(*key);
+    (*key) = 0;
+    if (POLY_FREE_ALL == cmd) {
+        free(*value);
+        (*value) = 0;
+    }
+}
+
+void crawl(arguments *arg) {
     global_info global;
     memset(&global, 0, sizeof(global_info));
 
     /* Init before looping starts */
+    global.arg = arg;
     global.loop = ev_default_loop(0);
     global.multi = curl_multi_init();
     ev_timer_init(&(global.timer_event), socket_action_timer_cb, 0., 0.);
@@ -367,13 +408,17 @@ void crawl(struct arguments *arg) {
     curl_multi_setopt(global.multi, CURLMOPT_TIMERDATA, &global);
     curl_multi_setopt(global.multi, CURLMOPT_SOCKETFUNCTION, sock_cb);
     curl_multi_setopt(global.multi, CURLMOPT_SOCKETDATA, &global);
+    bintree_init(&(global.url_tree), bintree_streq, free_tree);
 
+    /* Add a connection to the url where we will start the spider */
     new_conn(arg->url, &global);
 
     /* Lets find some urls */
     ev_loop(global.loop, 0);
 
     /* Cleanups after looping */
+    free_array_of_charptr_incl(&(global.urls_list), global.urls_list_len);
+    bintree_free(&(global.url_tree));
     curl_multi_cleanup(global.multi);
 }
 

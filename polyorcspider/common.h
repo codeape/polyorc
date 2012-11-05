@@ -21,12 +21,12 @@
 #include "config.h"
 
 /* Used by main to communicate with parse_opt. */
-struct arguments {
+typedef struct _arguments {
     int silent, verbose;
     char *url;
     char **excludes;
     int excludes_len;
-};
+} arguments;
 
 #define ORC_USERAGENT ORC_NAME"/"ORC_VERSION
 
