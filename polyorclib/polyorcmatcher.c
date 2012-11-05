@@ -131,19 +131,20 @@ int find_urls(char *html, char **excludes, int excludes_len,
                     url_count++;
                     char **tmp = 0;
                     if (url_count  > (*ret_len)) {
-                        tmp = realloc((*ret),
-                                      url_count * sizeof(**ret));
-                    }
-                    if (0 == tmp) {
-                        fprintf(stderr, "ERROR: %s (%d)\n",
-                                strerror(errno), errno);
-                        regfree(&regex);
-                        free(str);
-                        return -1;
+                        tmp = realloc((*ret), url_count * sizeof(**ret));
+                        if (0 == tmp) {
+                            fprintf(stderr, "ERROR: %s (%d)\n",
+                                    strerror(errno), errno);
+                            regfree(&regex);
+                            free(str);
+                            return -1;
+                        }
+                        (*ret_len) = url_count;
+                        (*ret) = tmp;
+                    } else {
+                        tmp = (*ret);
                     }
                     tmp[url_count - 1] = str;
-                    (*ret_len) = url_count;
-                    (*ret) = tmp;
                 }
             }
         }
