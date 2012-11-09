@@ -25,6 +25,7 @@
 #include "config.h"
 #include "common.h"
 #include "spider.h"
+#include "polyorcout.h"
 
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
@@ -41,11 +42,33 @@ static char args_doc[] = "URL";
 
 /* The options we understand. */
 static struct argp_option options[] = {
-    {"verbose",      'v', 0,       0, "Produce verbose output" },
     {"quiet",        'q', 0,       0, "Don't produce any output" },
+    {"verbose",      'v', 0,       0, "Produce verbose output" },
+    {"debug",        'd', 0,       0, "Produce debug and verbose output" },
+    {"color",        'c', 0,       0, "Color output" },
+    {"no-color",     'n', 0,       0, "No color output" },
     {"exclude",     1001, "REGEX", 0, "Exclude pattern" },
     { 0 }
 };
+
+static void check_verbosity(struct argp_state *state,
+                            arguments *arg, enum polyorc_verbosity newarg)
+{
+    if (orcm_not_set != arg->verbosity && newarg != arg->verbosity) {
+        orcerror("You can not combine quiet, verbose and debug options.\n");
+        argp_usage(state);
+    }
+}
+
+
+static void check_color(struct argp_state *state,
+                        arguments *arg, enum polyorc_color newarg)
+{
+    if (orcc_not_set != arg->color && newarg != arg->color) {
+        orcerror("You can not combine color and no-color options.\n");
+        argp_usage(state);
+    }
+}
 
 /* Parse a single option. */
 static error_t parse_opt(int key, char *opt_arg, struct argp_state *state)
@@ -56,10 +79,24 @@ static error_t parse_opt(int key, char *opt_arg, struct argp_state *state)
 
     switch (key) {
     case 'q':
-        arg->silent = 1;
+        check_verbosity(state, arg, orcm_quiet);
+        arg->verbosity = orcm_quiet;
         break;
     case 'v':
-        arg->verbose = 1;
+        check_verbosity(state, arg, orcm_verbose);
+        arg->verbosity = orcm_verbose;
+        break;
+    case 'd':
+        check_verbosity(state, arg, orcm_debug);
+        arg->verbosity = orcm_debug;
+        break;
+    case 'c':
+        check_color(state,arg, orcc_use_color);
+        arg->color = orcc_use_color;
+        break;
+    case 'n':
+        check_color(state,arg, orcc_no_color);
+        arg->color = orcc_no_color;
         break;
     case 1001:
         arg->excludes_len++;
@@ -67,7 +104,10 @@ static error_t parse_opt(int key, char *opt_arg, struct argp_state *state)
         char **tmp;
         tmp = realloc(arg->excludes, size);
         if (0 == tmp) {
-            fprintf(stderr, "ERROR: %s (%d)\n", strerror(errno), errno);
+            if (0 != arg->excludes) {
+                free(arg->excludes);
+            }
+            orcerror("%s (%d)\n", strerror(errno), errno);
             exit(EXIT_FAILURE);
         }
         tmp[arg->excludes_len - 1] = opt_arg;
@@ -104,8 +144,8 @@ int main(int argc, char *argv[])
     arguments arg;
 
     /* Default values. */
-    arg.silent = 0;
-    arg.verbose = 0;
+    arg.verbosity = orcm_not_set;
+    arg.color = orcc_not_set;
     arg.url = 0;
     arg.excludes = 0;
     arg.excludes_len = 0;
@@ -114,10 +154,20 @@ int main(int argc, char *argv[])
        be reflected in arguments. */
     argp_parse(&argp, argc, argv, 0, 0, &arg);
 
+    if (orcm_not_set == arg.verbosity) {
+        arg.verbosity = orcm_normal;
+    }
+
+    if (orcc_not_set == arg.color) {
+        arg.color = orcc_no_color;
+    }
+
+    init_polyorcout(arg.verbosity, arg.color);
+
+    print_splash();
     crawl(&arg);
 
     free(arg.excludes);
-    arg.excludes = 0;
 
     return EXIT_SUCCESS;
 }

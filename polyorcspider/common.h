@@ -19,10 +19,12 @@
 #define COMMON_H
 
 #include "config.h"
+#include "polyorcout.h"
 
 /* Used by main to communicate with parse_opt. */
 typedef struct _arguments {
-    int silent, verbose;
+    enum polyorc_verbosity verbosity;
+    enum polyorc_color color;
     char *url;
     char **excludes;
     int excludes_len;

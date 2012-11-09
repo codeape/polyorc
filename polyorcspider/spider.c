@@ -14,6 +14,7 @@
  ...................................................................
  Polyorc is under BSD 2-Clause License (see LICENSE file)
 */
+
 /*
  This part of the code is very inspired by the libcurl examples evhiperfifo.c
  and getinmemory.c
@@ -23,6 +24,7 @@
 #include "polyorcbintree.h"
 #include "polyorcutils.h"
 #include "polyorcmatcher.h"
+#include "polyorcout.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -100,7 +102,7 @@ typedef struct _sock_info {
 static void url_add(global_info *global, char *url) {
    url_node *newnode = calloc(1, sizeof(url_node));
    if (0 == newnode) {
-      fprintf(stderr, "ERROR: %s (%d)\n", strerror(errno), errno);
+      orcerror("%s (%d)\n", strerror(errno), errno);
       exit(EXIT_FAILURE);
    }
    newnode->url = url;
@@ -141,11 +143,11 @@ static void mcode_or_die(const char *where, CURLMcode code) {
         default: s = "CURLM_unknown";
             break;
         case CURLM_BAD_SOCKET:         s = "CURLM_BAD_SOCKET";
-            printf("ERROR: %s returns %s\n", where, s);
+            orcerror("%s returns %s\n", where, s);
             /* ignore this error */
             return;
         }
-        printf("ERROR: %s returns %s\n", where, s);
+        orcerror("%s returns %s\n", where, s);
         exit(code);
     }
 }
@@ -179,7 +181,7 @@ static void check_multi_info(global_info *global) {
     CURLMsg *msg;
     int msgs_left;
 
-    printf("REMAINING: %d\n", global->still_running);
+    orcout(orcm_debug, "REMAINING: %d\n", global->still_running);
     while ((msg = curl_multi_info_read(global->multi, &msgs_left))) {
         if (msg->msg == CURLMSG_DONE) {
             easy = msg->easy_handle;
@@ -187,8 +189,9 @@ static void check_multi_info(global_info *global) {
             // Retrive the connection info for a handle
             curl_easy_getinfo(easy, CURLINFO_PRIVATE, &conn);
             curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &effective_url);
-            printf("DONE: %s => (%d) %s\n", effective_url, result, conn->error);
-            printf("%s", conn->memory);
+            orcout(orcm_debug, "DONE: %s => (%d) %s\n", effective_url,
+                   result, conn->error);
+            orcout(orcm_debug, "%s", conn->memory);
             // Cleanup the finished easy handle
             curl_multi_remove_handle(global->multi, easy);
             curl_easy_cleanup(easy);
@@ -204,6 +207,8 @@ static void check_multi_info(global_info *global) {
 
 /* Called by libevent when our "wait for socket actions" timeout expires */
 static void socket_action_timer_cb(EV_P_ struct ev_timer *timer, int revents) {
+    orcout(orcm_debug, "%s  timer %p revents %i\n", __PRETTY_FUNCTION__,
+           timer, revents);
     global_info *global = (global_info *)timer->data;
     CURLMcode rc;
 
@@ -217,6 +222,7 @@ static void socket_action_timer_cb(EV_P_ struct ev_timer *timer, int revents) {
 /* Update the event timer ("wait for socket actions") after curl_multi library
    calls */
 static int multi_timer_cb(CURLM *multi, long timeout_ms, global_info *global) {
+    orcout(orcm_debug, "%s timeout %li\n", __PRETTY_FUNCTION__,  timeout_ms);
     ev_timer_stop(global->loop, &(global->timer_event));
     if (timeout_ms > 0) {
         double  t = timeout_ms / 1000;
@@ -230,6 +236,8 @@ static int multi_timer_cb(CURLM *multi, long timeout_ms, global_info *global) {
 
 /* Called by libevent when we get action on a multi socket */
 static void event_cb(EV_P_ struct ev_io *event_io, int revents) {
+    orcout(orcm_debug, "%s  event_io %p revents %i\n", __PRETTY_FUNCTION__,
+           event_io, revents);
     global_info *global = (global_info *)event_io->data;
     CURLMcode rc;
 
@@ -240,7 +248,7 @@ static void event_cb(EV_P_ struct ev_io *event_io, int revents) {
     mcode_or_die("event_cb: curl_multi_socket_action", rc);
     check_multi_info(global);
     if (global->still_running <= 0) {
-        printf("last transfer done, kill timeout\n");
+        orcout(orcm_debug, "last transfer done, kill timeout\n");
         ev_timer_stop(global->loop, &(global->timer_event));
     }
 }
@@ -289,21 +297,23 @@ static void addsock(curl_socket_t curl_soc, CURL *handle, int action,
 static int sock_cb(CURL *handle, curl_socket_t curl_soc, int what, void *cbp,
                    void *sockp)
 {
+    orcout(orcm_debug, "%s handle %p curl_soc %i what %i cbp %p sockp %p\n",
+         __PRETTY_FUNCTION__, handle, curl_soc, what, cbp, sockp);
     global_info *global = (global_info *)cbp;
     sock_info *soc = (sock_info *)sockp;
     const char *whatstr[] = { "none", "IN", "OUT", "INOUT", "REMOVE" };
 
-    printf("socket callback: s=%d e=%p what=%s ",
+    orcout(orcm_debug, "socket callback: s=%d e=%p what=%s ",
            curl_soc, handle, whatstr[what]);
     if (what == CURL_POLL_REMOVE) {
-        printf("\n");
+        orcout(orcm_debug, "\n");
         remsock(soc, global);
     } else {
         if (!soc) {
-            printf("Adding data: %s\n", whatstr[what]);
+            orcout(orcm_debug, "Adding data: %s\n", whatstr[what]);
             addsock(curl_soc, handle, what, global);
         } else {
-            printf("Changing action from %s to %s\n",
+            orcout(orcm_debug, "Changing action from %s to %s\n",
                    whatstr[soc->action], whatstr[what]);
             setsock(soc, curl_soc, handle, what, global);
         }
@@ -319,7 +329,7 @@ static size_t write_cb(void *contents, size_t size, size_t nmemb, void *data) {
     conn->memory = realloc(conn->memory, conn->memory_size + realsize + 1);
     if (0 == conn->memory) {
         /* out of memory! */
-        fprintf(stderr, "ERROR: %s (%d)\n", strerror(errno), errno);
+        orcerror("%s (%d)\n", strerror(errno), errno);
         exit(EXIT_FAILURE);
     }
 
@@ -339,7 +349,7 @@ static int prog_cb(void *data, double dltotal, double dlnow, double ult,
     (void)uln;
 
     if (dlnow > 0 && dltotal > 0) {
-        printf("Progress: %s (%g/%g)\n", conn->url, dlnow, dltotal);
+        orcout(orcm_debug, "Progress: %s (%g/%g)\n", conn->url, dlnow, dltotal);
     }
     return 0;
 }
@@ -348,6 +358,10 @@ static int prog_cb(void *data, double dltotal, double dlnow, double ult,
 static void new_conn(char *url, global_info *global) {
     CURLMcode rc;
     conn_info *conn;
+    long int debug = 1L;
+    if (orcm_debug != debug) {
+        debug = 0;
+    }
 
     conn = calloc(1, sizeof(conn_info));
     memset(conn, 0, sizeof(conn_info));
@@ -355,7 +369,7 @@ static void new_conn(char *url, global_info *global) {
     conn->error[0] = '\0';
     conn->easy = curl_easy_init();
     if (!conn->easy) {
-        printf("curl_easy_init() failed, exiting!\n");
+        orcerror("curl_easy_init() failed, exiting!\n");
         exit(EXIT_FAILURE);
     }
 
@@ -367,7 +381,7 @@ static void new_conn(char *url, global_info *global) {
     curl_easy_setopt(conn->easy, CURLOPT_URL, conn->url);
     curl_easy_setopt(conn->easy, CURLOPT_WRITEFUNCTION, write_cb);
     curl_easy_setopt(conn->easy, CURLOPT_WRITEDATA, conn);
-    curl_easy_setopt(conn->easy, CURLOPT_VERBOSE, 1L);
+    curl_easy_setopt(conn->easy, CURLOPT_VERBOSE, debug);
     curl_easy_setopt(conn->easy, CURLOPT_ERRORBUFFER, conn->error);
     curl_easy_setopt(conn->easy, CURLOPT_PRIVATE, conn);
     curl_easy_setopt(conn->easy, CURLOPT_NOPROGRESS, 0L);
@@ -377,7 +391,7 @@ static void new_conn(char *url, global_info *global) {
     curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_LIMIT, 10L);
     curl_easy_setopt(conn->easy, CURLOPT_USERAGENT, ORC_USERAGENT);
 
-    printf("Adding easy %p to multi %p (%s)\n", conn->easy, global->multi, url);
+    orcout(orcm_debug, "Adding easy %p to multi %p (%s)\n", conn->easy, global->multi, url);
     rc = curl_multi_add_handle(global->multi, conn->easy);
     mcode_or_die("new_conn: curl_multi_add_handle", rc);
 
