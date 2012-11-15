@@ -152,7 +152,9 @@ static void mcode_or_die(const char *where, CURLMcode code) {
     }
 }
 
+/* Find urls in a page and keep them */
 static void analyze_page(global_info *global, char *page) {
+    /* Analyze */
     int matches = 0;
     if(-1 == (matches = find_urls(page, global->arg->excludes,
                                   global->arg->excludes_len,
@@ -166,9 +168,13 @@ static void analyze_page(global_info *global, char *page) {
         exit(EXIT_FAILURE);
     }
 
+    /* Save */
     int i;
     for (i = 0; i < matches; i++) {
-        printf("%s\n", global->urls_list[i]);
+        printf("%d %s\n", i, global->urls_list[i]);
+        url_add(global, global->urls_list[i]);
+        global->urls_list[i] = 0;
+
     }
 }
 
@@ -434,5 +440,13 @@ void crawl(arguments *arg) {
     free_array_of_charptr_incl(&(global.urls_list), global.urls_list_len);
     bintree_free(&(global.url_tree));
     curl_multi_cleanup(global.multi);
+
+    char *url_item = 0;
+    int i = 0;
+    while (0 != (url_item = url_get(&global))) {
+        free(url_item);
+        i++;
+    }
+    orcout(orcm_debug, "Freed %d url items.", i);
 }
 
