@@ -155,7 +155,7 @@ void orcoutcl(enum polyorc_color_attr attr, enum polyorc_color_val cv,
  * @param msg A status message
  * @param format The same as for printf
  */
-void status(enum polyorc_verbosity verbosity, enum polyorc_status s,
+void orcstatus(enum polyorc_verbosity verbosity, enum polyorc_status s,
             const char *msg, const char *format, ...) {
     if (verbosity <= orc_verbosity) {
         enum polyorc_color_val msg_color = orc_red;
@@ -164,9 +164,10 @@ void status(enum polyorc_verbosity verbosity, enum polyorc_status s,
             msg_color = orc_green;
             break;
         case orc_warn:
-            msg_color = orc_red;
+            msg_color = orc_yellow;
             break;
         case orc_err:
+            msg_color = orc_red;
             break;
         default:
             break;

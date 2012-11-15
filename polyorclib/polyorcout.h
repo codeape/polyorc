@@ -75,7 +75,7 @@ void orcoutc(enum polyorc_color_attr, enum polyorc_color_val, const char*, ...);
 void orcoutcl(enum polyorc_color_attr, enum polyorc_color_val,
               const char* format, ...);
 
-void status(enum polyorc_verbosity, enum polyorc_status, const char *,
+void orcstatus(enum polyorc_verbosity, enum polyorc_status, const char *,
             const char*, ...);
 
 void print_splash();
