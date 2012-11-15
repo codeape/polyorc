@@ -16,8 +16,8 @@
 */
 
 #include "polyorcmatcher.h"
+#include "polyorcout.h"
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <regex.h>
@@ -30,7 +30,7 @@ void _orc_match_regerror(int errcode, const regex_t *preg, const char *pattern)
     size_t errbuff_len = regerror(errcode, preg, 0, 0);
     char *errbuff = malloc(errbuff_len);
     regerror(errcode, preg, errbuff, errbuff_len);
-    fprintf(stderr, "ERROR: %s 'regexp: %s'\n", errbuff, pattern);
+    orcerror("%s 'regexp: %s'\n", errbuff, pattern);
     free(errbuff);
 }
 
@@ -125,7 +125,7 @@ int find_urls(char *html, char **excludes, int excludes_len,
                 }
 
                 if (exclude) {
-                    printf("exclude   %s\n", str);
+                    orcstatus(orcm_normal, orc_warn, "exclude", "%s\n", str);
                     free(str);
                 } else {
                     url_count++;
@@ -133,8 +133,7 @@ int find_urls(char *html, char **excludes, int excludes_len,
                     if (url_count  > (*ret_len)) {
                         tmp = realloc((*ret), url_count * sizeof(**ret));
                         if (0 == tmp) {
-                            fprintf(stderr, "ERROR: %s (%d)\n",
-                                    strerror(errno), errno);
+                            orcerror("%s (%d)\n", strerror(errno), errno);
                             regfree(&regex);
                             free(str);
                             return -1;
