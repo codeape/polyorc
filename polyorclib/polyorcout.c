@@ -155,25 +155,11 @@ void orcoutcl(enum polyorc_color_attr attr, enum polyorc_color_val cv,
  * @param msg A status message
  * @param format The same as for printf
  */
-void orcstatus(enum polyorc_verbosity verbosity, enum polyorc_status s,
+void orcstatus(enum polyorc_verbosity verbosity, enum polyorc_color_val color,
             const char *msg, const char *format, ...) {
     if (verbosity <= orc_verbosity) {
-        enum polyorc_color_val msg_color = orc_red;
-        switch (s) {
-        case orc_ok:
-            msg_color = orc_green;
-            break;
-        case orc_warn:
-            msg_color = orc_yellow;
-            break;
-        case orc_err:
-            msg_color = orc_red;
-            break;
-        default:
-            break;
-        }
         printf("[ ");
-        orcoutc(orc_reset, msg_color, msg);
+        orcoutc(orc_reset, color, msg);
         printf(" ] ");
         va_list argptr;
         va_start(argptr, format);

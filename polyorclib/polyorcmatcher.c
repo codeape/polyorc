@@ -125,7 +125,7 @@ int find_urls(char *html, char **excludes, int excludes_len,
                 }
 
                 if (exclude) {
-                    orcstatus(orcm_normal, orc_warn, "exclude", "%s\n", str);
+                    orcstatus(orcm_normal, orc_yellow, "exclude", "%s\n", str);
                     free(str);
                 } else {
                     url_count++;

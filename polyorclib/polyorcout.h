@@ -54,12 +54,6 @@ enum polyorc_color_val {
     orc_white =37
 };
 
-enum polyorc_status {
-    orc_ok,
-    orc_warn,
-    orc_err
-};
-
 void init_polyorcout(enum polyorc_verbosity, enum polyorc_color);
 
 void orcerror(const char* format, ...);
@@ -75,7 +69,7 @@ void orcoutc(enum polyorc_color_attr, enum polyorc_color_val, const char*, ...);
 void orcoutcl(enum polyorc_color_attr, enum polyorc_color_val,
               const char* format, ...);
 
-void orcstatus(enum polyorc_verbosity, enum polyorc_status, const char *,
+void orcstatus(enum polyorc_verbosity, enum polyorc_color_val, const char *,
             const char*, ...);
 
 void print_splash();

@@ -30,6 +30,9 @@
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
 
+#define DEFAULT_MAX_JOBS 20
+#define DEFAULT_MAX_JOBS_STR STR(DEFAULT_MAX_JOBS)
+
 const char *argp_program_version = ORC_VERSION;
 const char *argp_program_bug_address = ORC_BUG_ADDRESS;
 
@@ -47,6 +50,8 @@ static struct argp_option options[] = {
     {"debug",        'd', 0,       0, "Produce debug and verbose output" },
     {"color",        'c', 0,       0, "Color output" },
     {"no-color",     'n', 0,       0, "No color output" },
+    {"job",          'j', 0,       0, "Max parallell downloads (default " \
+                                      DEFAULT_MAX_JOBS_STR ")" },
     {"exclude",     1001, "REGEX", 0, "Exclude pattern" },
     { 0 }
 };
@@ -98,6 +103,16 @@ static error_t parse_opt(int key, char *opt_arg, struct argp_state *state)
         check_color(state,arg, orcc_no_color);
         arg->color = orcc_no_color;
         break;
+    case 'j':
+        if(1 != sscanf(opt_arg, "%d", &(arg->max_jobs))) {
+            orcerror("Job set to a non integer value.\n");
+            argp_usage(state);
+        }
+        if (1 > arg->max_jobs) {
+            orcerror("Job set to a 0 or a negative value.\n");
+            argp_usage(state);
+        }
+        break;
     case 1001:
         arg->excludes_len++;
         size_t size = arg->excludes_len * sizeof(*(arg->excludes));
@@ -146,6 +161,7 @@ int main(int argc, char *argv[])
     /* Default values. */
     arg.verbosity = orcm_not_set;
     arg.color = orcc_not_set;
+    arg.max_jobs = DEFAULT_MAX_JOBS;
     arg.url = 0;
     arg.excludes = 0;
     arg.excludes_len = 0;
@@ -169,5 +185,6 @@ int main(int argc, char *argv[])
 
     free(arg.excludes);
 
+    orcout(orcm_quiet, "Done!\n");
     return EXIT_SUCCESS;
 }

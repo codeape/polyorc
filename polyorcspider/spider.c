@@ -70,6 +70,7 @@ typedef struct _global_info {
     int still_running;
     CURLM *multi;
     arguments *arg;
+    int job_count;
     url_node *url_out;
     url_node *url_in;
     bintree_root url_tree;
@@ -86,6 +87,8 @@ typedef struct _conn_info {
     size_t memory_size;
     char error[CURL_ERROR_SIZE];
 } conn_info;
+
+static void new_conn(char *, global_info *);
 
 /* Information associated with a specific socket */
 typedef struct _sock_info {
@@ -171,10 +174,34 @@ static void analyze_page(global_info *global, char *page) {
     /* Save */
     int i;
     for (i = 0; i < matches; i++) {
-        printf("%d %s\n", i, global->urls_list[i]);
-        url_add(global, global->urls_list[i]);
+        size_t prefix_len = strlen(global->arg->url);
+        size_t url_len = strlen(global->urls_list[i]);
+        size_t total = prefix_len + url_len + 1;
+        char *caturl = calloc(total,  sizeof(char));
+        strncpy(caturl, global->arg->url, total);
+        strncat(caturl, global->urls_list[i], url_len + 1);
+        printf("%d %s\n", i, caturl);
+        url_add(global, caturl);
+        free(global->urls_list[i]);
         global->urls_list[i] = 0;
 
+    }
+}
+
+static void read_new_pages(global_info *global) {
+    int max_count = global->arg->max_jobs;
+    char* url = 0;
+    while (global->job_count <= max_count && 0 != (url = url_get(global))) {
+        url_info *info = 0;
+        if (0 != (info = (url_info *)bintree_find(&(global->url_tree), url))) {
+            info->found_count++;
+            orcstatus(orcm_verbose, orc_cyan, "counted", "%s\n", url);
+        } else {
+            info = calloc(1, sizeof(*info));
+            bintree_add(&(global->url_tree), url, info);
+            new_conn(url, global);
+            orcstatus(orcm_verbose, orc_green, "added", "%s\n", url);
+        }
     }
 }
 
@@ -206,7 +233,9 @@ static void check_multi_info(global_info *global) {
             free(conn->url);
             free(conn->memory);
             free(conn);
+            global->job_count--;
             // Create new readers here
+            read_new_pages(global);
         }
     }
 }
@@ -253,7 +282,7 @@ static void event_cb(EV_P_ struct ev_io *event_io, int revents) {
                                   &(global->still_running));
     mcode_or_die("event_cb: curl_multi_socket_action", rc);
     check_multi_info(global);
-    if (global->still_running <= 0) {
+    if (global->still_running <= 0 && global->job_count  <= 0) {
         orcout(orcm_debug, "last transfer done, kill timeout\n");
         ev_timer_stop(global->loop, &(global->timer_event));
     }
@@ -401,6 +430,7 @@ static void new_conn(char *url, global_info *global) {
     rc = curl_multi_add_handle(global->multi, conn->easy);
     mcode_or_die("new_conn: curl_multi_add_handle", rc);
 
+    global->job_count++;
     /* note that the add_handle() will set a time-out to trigger very soon so
        that the necessary socket_action() call will be called by this app */
 }
@@ -430,8 +460,29 @@ void crawl(arguments *arg) {
     curl_multi_setopt(global.multi, CURLMOPT_SOCKETDATA, &global);
     bintree_init(&(global.url_tree), bintree_streq, free_tree);
 
+    /* Copy the main url */
+    size_t root_url_len = strnlen(arg->url, MAX_URL_LEN + 10);
+    if (root_url_len > MAX_URL_LEN) {
+        orcerror("%s : url is larger than defacto limit %d\n", arg->url);
+        exit(EXIT_FAILURE);
+    }
+    char *root_url = calloc(root_url_len + 1, sizeof(char));
+    if (0 == root_url) {
+        orcerror("%s (%d)\n", strerror(errno), errno);
+        exit(EXIT_FAILURE);
+    }
+    /* Create a info value for the main url */
+    url_info *info = calloc(1, sizeof(*info));
+    if (0 == info) {
+        orcerror("%s (%d)\n", strerror(errno), errno);
+        exit(EXIT_FAILURE);
+    }
+    strncpy(root_url, arg->url, root_url_len);
+    root_url[root_url_len] = '\0';
     /* Add a connection to the url where we will start the spider */
-    new_conn(arg->url, &global);
+    new_conn(root_url, &global);
+    /* root_url and info are freed in bintree_free */
+    bintree_add(&(global.url_tree), root_url, info);
 
     /* Lets find some urls */
     ev_loop(global.loop, 0);
@@ -447,6 +498,6 @@ void crawl(arguments *arg) {
         free(url_item);
         i++;
     }
-    orcout(orcm_debug, "Freed %d url items.", i);
+    orcout(orcm_debug, "Freed %d url items.\n", i);
 }
 
