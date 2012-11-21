@@ -33,26 +33,6 @@
 #include <curl/curl.h>
 #include <ev.h>
 
-/*
-    char **urls = 0;
-    int urls_len = 0;
-    if(-1 == (urls_len = find_urls(chunk.memory, arg.excludes,
-                       arg.excludes_len, &urls, &urls_len)))
-    {
-        if (0 != urls_len) {
-            free_array_of_charptr_incl(&urls, urls_len);
-        }
-        return EXIT_FAILURE;
-    }
-
-    int i;
-    for (i = 0; i < urls_len; i++) {
-        printf("%s\n", urls[i]);
-    }
-
-    free_array_of_charptr_incl(&urls, urls_len);
-*/
-
 /* A url fifo node*/
 typedef struct _url_node {
    char *url;
@@ -180,11 +160,9 @@ static void analyze_page(global_info *global, char *page) {
         char *caturl = calloc(total,  sizeof(char));
         strncpy(caturl, global->arg->url, total);
         strncat(caturl, global->urls_list[i], url_len + 1);
-        printf("%d %s\n", i, caturl);
         url_add(global, caturl);
         free(global->urls_list[i]);
         global->urls_list[i] = 0;
-
     }
 }
 
@@ -196,6 +174,7 @@ static void read_new_pages(global_info *global) {
         if (0 != (info = (url_info *)bintree_find(&(global->url_tree), url))) {
             info->found_count++;
             orcstatus(orcm_verbose, orc_cyan, "counted", "%s\n", url);
+            free(url);
         } else {
             info = calloc(1, sizeof(*info));
             bintree_add(&(global->url_tree), url, info);
