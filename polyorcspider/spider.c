@@ -32,6 +32,7 @@
 #include <string.h>
 #include <curl/curl.h>
 #include <ev.h>
+#include <sys/time.h>
 
 /* A url fifo node*/
 typedef struct _url_node {
@@ -177,6 +178,7 @@ static void read_new_pages(global_info *global) {
             free(url);
         } else {
             info = calloc(1, sizeof(*info));
+            info->found_count++;
             bintree_add(&(global->url_tree), url, info);
             new_conn(url, global);
             orcstatus(orcm_verbose, orc_green, "added", "%s\n", url);
@@ -463,8 +465,26 @@ void crawl(arguments *arg) {
     /* root_url and info are freed in bintree_free */
     bintree_add(&(global.url_tree), root_url, info);
 
+    struct timeval start;
+    struct timeval stop;
+
     /* Lets find some urls */
+    gettimeofday(&start, 0);
     ev_loop(global.loop, 0);
+    gettimeofday(&stop, 0);
+
+    long sec = stop.tv_sec - start.tv_sec;
+    long usec = stop.tv_usec - start.tv_usec;
+    if (usec < 0) {
+        sec--;
+        usec = 1000000 - (start.tv_usec - stop.tv_usec);
+    }
+
+    orcoutc(orc_reset, orc_red, "Time: ");
+    orcout(orcm_quiet, "%d.%d sec\n", sec, usec);
+
+    orcoutc(orc_reset, orc_red, "Collected urls: ");
+    orcout(orcm_quiet, "%d\n", global.url_tree.node_count);
 
     /* Cleanups after looping */
     free_array_of_charptr_incl(&(global.urls_list), global.urls_list_len);
