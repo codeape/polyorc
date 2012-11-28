@@ -175,7 +175,7 @@ static void read_new_pages(global_info *global) {
         url_info *info = 0;
         if (0 != (info = (url_info *)bintree_find(&(global->url_tree), url))) {
             info->found_count++;
-            orcstatus(orcm_verbose, orc_cyan, "counted", "%s\n", url);
+            orcstatus(orcm_debug, orc_cyan, "counted", "%s\n", url);
             free(url);
         } else {
             info = calloc(1, sizeof(*info));
