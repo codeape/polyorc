@@ -33,6 +33,8 @@
 #define DEFAULT_MAX_JOBS 20
 #define DEFAULT_MAX_JOBS_STR STR(DEFAULT_MAX_JOBS)
 
+#define DEFAULT_OUT "spider.out"
+
 const char *argp_program_version = ORC_VERSION;
 const char *argp_program_bug_address = ORC_BUG_ADDRESS;
 
@@ -52,6 +54,7 @@ static struct argp_option options[] = {
     {"no-color",     'n', 0,       0, "No color output" },
     {"job",          'j', 0,       0, "Max parallell downloads (default " \
                                       DEFAULT_MAX_JOBS_STR ")" },
+    {"out",          'o', "FILE",  0, "Output file (default " DEFAULT_OUT ")"},
     {"exclude",     1001, "REGEX", 0, "Exclude pattern" },
     { 0 }
 };
@@ -128,6 +131,9 @@ static error_t parse_opt(int key, char *opt_arg, struct argp_state *state)
         tmp[arg->excludes_len - 1] = opt_arg;
         arg->excludes = tmp;
         break;
+    case 'o':
+        arg->out_file = opt_arg;
+        break;
     case ARGP_KEY_ARG:
         if (state->arg_num > 1) {
             /* Too many arguments. */
@@ -163,6 +169,7 @@ int main(int argc, char *argv[])
     arg.color = orcc_not_set;
     arg.max_jobs = DEFAULT_MAX_JOBS;
     arg.url = 0;
+    arg.out_file = DEFAULT_OUT;
     arg.excludes = 0;
     arg.excludes_len = 0;
 

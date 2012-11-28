@@ -57,6 +57,7 @@ typedef struct _global_info {
     bintree_root url_tree;
     char **urls_list;
     int urls_list_len;
+    FILE *out;
 } global_info;
 
 /* Information associated with a specific easy handle */
@@ -182,6 +183,11 @@ static void read_new_pages(global_info *global) {
             bintree_add(&(global->url_tree), url, info);
             new_conn(url, global);
             orcstatus(orcm_verbose, orc_green, "added", "%s\n", url);
+            if(0 > fprintf(global->out, "%s\n", url)) {
+                orcerror("%s (%d) %s\n", strerror(errno), errno,
+                         global->arg->out_file);
+                exit(EXIT_FAILURE);
+            }
         }
     }
 }
@@ -430,6 +436,10 @@ void crawl(arguments *arg) {
     memset(&global, 0, sizeof(global_info));
 
     /* Init before looping starts */
+    if (0 == (global.out = fopen(arg->out_file, "w+"))) {
+        orcerror("%s (%d) %s\n", strerror(errno), errno, arg->out_file);
+        exit(EXIT_FAILURE);
+    }
     global.arg = arg;
     global.loop = ev_default_loop(0);
     global.multi = curl_multi_init();
@@ -487,6 +497,7 @@ void crawl(arguments *arg) {
     orcout(orcm_quiet, "%d\n", global.url_tree.node_count);
 
     /* Cleanups after looping */
+    fclose(global.out);
     free_array_of_charptr_incl(&(global.urls_list), global.urls_list_len);
     bintree_free(&(global.url_tree));
     curl_multi_cleanup(global.multi);
