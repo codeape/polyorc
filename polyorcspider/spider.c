@@ -58,6 +58,7 @@ typedef struct _global_info {
     char **urls_list;
     int urls_list_len;
     FILE *out;
+    long total_bytes;
 } global_info;
 
 /* Information associated with a specific easy handle */
@@ -206,22 +207,25 @@ static void check_multi_info(global_info *global) {
         if (msg->msg == CURLMSG_DONE) {
             easy = msg->easy_handle;
             result = msg->data.result;
-            // Retrive the connection info for a handle
+            /* Retrive the connection info for a handle */
             curl_easy_getinfo(easy, CURLINFO_PRIVATE, &conn);
             curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &effective_url);
             orcout(orcm_debug, "DONE: %s => (%d) %s\n", effective_url,
                    result, conn->error);
             orcout(orcm_debug, "%s", conn->memory);
-            // Cleanup the finished easy handle
+            /* Cleanup the finished easy handle */
             curl_multi_remove_handle(global->multi, easy);
             curl_easy_cleanup(easy);
-            // Analyze here
+            /* Analyze here */
             analyze_page(global, conn->memory);
+            /* Collect stats */
+            global->total_bytes += conn->memory_size;
+            /* Cleanups after download */
             free(conn->url);
             free(conn->memory);
             free(conn);
             global->job_count--;
-            // Create new readers here
+            /* Create new readers here */
             read_new_pages(global);
         }
     }
@@ -343,7 +347,7 @@ static int sock_cb(CURL *handle, curl_socket_t curl_soc, int what, void *cbp,
     return 0;
 }
 
-/* CURLOPT_WRITEFUNCTION */
+/* CURLOPT_WRITEFUNCTION - reads a page and write to memmory */
 static size_t write_cb(void *contents, size_t size, size_t nmemb, void *data) {
     size_t realsize = size * nmemb;
     conn_info *conn = (conn_info *)data;
@@ -364,8 +368,7 @@ static size_t write_cb(void *contents, size_t size, size_t nmemb, void *data) {
 
 /* CURLOPT_PROGRESSFUNCTION */
 static int prog_cb(void *data, double dltotal, double dlnow, double ult,
-                   double uln)
-{
+                   double uln) {
     conn_info *conn = (conn_info *)data;
     (void)ult;
     (void)uln;
@@ -431,6 +434,26 @@ static void free_tree(void **key, void **value, const enum free_cmd cmd) {
     }
 }
 
+void print_stats(global_info *global, struct timeval *start,
+                 struct timeval *stop) {
+    long sec = stop->tv_sec - start->tv_sec;
+    long usec = stop->tv_usec - start->tv_usec;
+    if (usec < 0) {
+        sec--;
+        usec = 1000000 - (start->tv_usec - stop->tv_usec);
+    }
+
+    orcoutc(orc_reset, orc_red, "Downloaded:     ");
+    orcout(orcm_quiet, "%d bytes\n", global->total_bytes);
+
+
+    orcoutc(orc_reset, orc_red, "Time:           ");
+    orcout(orcm_quiet, "%d.%d sec\n", sec, usec);
+
+    orcoutc(orc_reset, orc_red, "Collected urls: ");
+    orcout(orcm_quiet, "%d\n", global->url_tree.node_count);
+}
+
 void crawl(arguments *arg) {
     global_info global;
     memset(&global, 0, sizeof(global_info));
@@ -483,18 +506,7 @@ void crawl(arguments *arg) {
     ev_loop(global.loop, 0);
     gettimeofday(&stop, 0);
 
-    long sec = stop.tv_sec - start.tv_sec;
-    long usec = stop.tv_usec - start.tv_usec;
-    if (usec < 0) {
-        sec--;
-        usec = 1000000 - (start.tv_usec - stop.tv_usec);
-    }
-
-    orcoutc(orc_reset, orc_red, "Time: ");
-    orcout(orcm_quiet, "%d.%d sec\n", sec, usec);
-
-    orcoutc(orc_reset, orc_red, "Collected urls: ");
-    orcout(orcm_quiet, "%d\n", global.url_tree.node_count);
+    print_stats(&global, &start, &stop);
 
     /* Cleanups after looping */
     fclose(global.out);
