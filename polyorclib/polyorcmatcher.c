@@ -52,8 +52,6 @@ void _orc_match_regerror(int errcode, const regex_t *preg, const char *pattern)
 int find_urls(char *html, char **excludes, int excludes_len,
               char ***ret, int *ret_len)
 {
-    char *current = html;
-
     const char *find_patterns[] = {
         "href[:space:]*=[:space:]*\"[:space:]*(/[^\"]*)\"",
         "href[:space:]*=[:space:]*'[:space:]*(/[^']*)'",
@@ -66,6 +64,9 @@ int find_urls(char *html, char **excludes, int excludes_len,
     int i = 0;
     int url_count = 0;
     while (0 != (find_pattern = find_patterns[i])) {
+        /* Last match pointer that points directly after last match */
+        char *current = html; /* Restet last match pointer */
+
         regex_t regex;
         regmatch_t pmatch[2];
         int status;
@@ -78,7 +79,7 @@ int find_urls(char *html, char **excludes, int excludes_len,
             return -1;
         }
 
-        // Find all links
+        /* Find all links */
         while (REG_NOMATCH != (status = regexec(&regex, current, 2, pmatch, 0)))
         {
             if (0 != status) {
@@ -86,14 +87,14 @@ int find_urls(char *html, char **excludes, int excludes_len,
                 regfree(&regex);
                 return -1;
             } else {
-                // Copy links and move on
+                /* Copy links and move on */
                 size_t str_len = (pmatch[1].rm_eo - pmatch[1].rm_so) + 1;
                 char *str = malloc(str_len);
                 strncpy(str, &(current[pmatch[1].rm_so]), str_len);
                 str[str_len - 1] = '\0';
                 current = &(current[pmatch[1].rm_eo]);
 
-                // Apply exclude patterns
+                /* Apply exclude patterns */
                 int j = 0;
                 regex_t regex_exclude;
                 int status_exclude;
@@ -124,6 +125,7 @@ int find_urls(char *html, char **excludes, int excludes_len,
                     j++;
                 }
 
+                /* Execute include or exclude */
                 if (exclude) {
                     orcstatus(orcm_normal, orc_yellow, "exclude", "%s\n", str);
                     free(str);
