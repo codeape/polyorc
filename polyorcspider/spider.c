@@ -51,6 +51,8 @@ typedef struct _global_info {
     int still_running;
     CURLM *multi;
     arguments *arg;
+    char *target_name;
+    size_t target_name_len;
     int job_count;
     url_node *url_out;
     url_node *url_in;
@@ -473,6 +475,15 @@ void crawl(arguments *arg) {
     curl_multi_setopt(global.multi, CURLMOPT_SOCKETFUNCTION, sock_cb);
     curl_multi_setopt(global.multi, CURLMOPT_SOCKETDATA, &global);
     bintree_init(&(global.url_tree), bintree_streq, free_tree);
+
+    global.target_name_len = 254;
+    global.target_name = calloc(global.target_name_len, sizeof(char));
+    if (!find_search_name(arg->url, global.target_name, global.target_name_len))
+    {
+        orcerror("not a valid domain name or ip in: %s\n", arg->url);
+        exit(EXIT_FAILURE);
+    }
+    orcoutc(orc_reset, orc_blue, "Target %s\n", global.target_name);
 
     /* Copy the main url */
     size_t root_url_len = strnlen(arg->url, MAX_URL_LEN + 10);
