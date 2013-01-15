@@ -37,12 +37,13 @@ void _orc_match_regerror(int errcode, const regex_t *preg, const char *pattern)
 }
 
 int find_search_name(const char *url, char *out, size_t out_len) {
-    const char *domain_pattern = "[a-zA-Z0-9][a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9]\\.[a-zA-Z]{2,6}$";
+    regex_t regex;
+    regmatch_t pmatch[2]; // We use 2 to avoid memleak
+    int status;
+    const char *pattern = "([a-zA-Z0-9][a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9]\\.[a-zA-Z]{2,6})$";
     const char *start_url = url;
 
-    regex_t regex;
-    regmatch_t pmatch[1];
-    int status;
+
 
     /* Strip protocol part */
     if ('h' == url[0] && 't' == url[1] && 't' == url[2] && 'p' == url[3] &&
@@ -71,6 +72,10 @@ int find_search_name(const char *url, char *out, size_t out_len) {
         name = calloc(name_len, sizeof(char));
         strncpy(name, start_url, name_len);
     }
+    if (0 == name) {
+        orcerror("%s (%d)\n", strerror(errno), errno);
+        return 0;
+    }
 
     /* check local host, name name and ip */
     if (0 == strcmp(name, "localhost")) {
@@ -88,25 +93,27 @@ int find_search_name(const char *url, char *out, size_t out_len) {
         return 1;
     }
 
-    if (0 != (status = regcomp(&regex, domain_pattern,
-                               REG_ICASE | REG_EXTENDED)))
+    if (0 != (status = regcomp(&regex, pattern, REG_ICASE | REG_EXTENDED)))
     {
-        _orc_match_regerror(status, &regex, domain_pattern);
+        _orc_match_regerror(status, &regex, pattern);
         regfree(&regex);
-        return -1;
+        return 0;
     }
 
     if (REG_NOMATCH != (status = regexec(&regex, name, 2, pmatch, 0))) {
         if (0 != status) {
-            _orc_match_regerror(status, &regex, domain_pattern);
+            _orc_match_regerror(status, &regex, pattern);
+            free(name);
             regfree(&regex);
-            return -1;
+            return 0;
         }
         strncpy(out, &(name[pmatch[0].rm_so]), out_len);
         free(name);
+        regfree(&regex);
         return 1;
     }
 
+    regfree(&regex);
     return 0;
 }
 
@@ -125,8 +132,7 @@ int find_search_name(const char *url, char *out, size_t out_len) {
  *
  * @return int The number of urls found.
  */
-int find_urls(char *html, char **excludes, int excludes_len,
-              char ***ret, int *ret_len)
+int find_urls(char *html, find_urls_input* input)
 {
     const char *find_patterns[] = {
         "href[:space:]*=[:space:]*\"[:space:]*(/[^\"]*)\"",
@@ -175,8 +181,8 @@ int find_urls(char *html, char **excludes, int excludes_len,
             regex_t regex_exclude;
             int status_exclude;
             int exclude = 0;
-            while (excludes_len > j && !exclude) {
-                status_exclude = regcomp(&regex_exclude, excludes[j],
+            while (input->excludes_len > j && !exclude) {
+                status_exclude = regcomp(&regex_exclude, input->excludes[j],
                                          REG_EXTENDED);
                 if (0 != status_exclude) {
                     _orc_match_regerror(status_exclude, &regex_exclude,
@@ -205,20 +211,21 @@ int find_urls(char *html, char **excludes, int excludes_len,
                 orcstatus(orcm_normal, orc_yellow, "exclude", "%s\n", str);
                 free(str);
             } else {
+                /* Add to result */
                 url_count++;
                 char **tmp = 0;
-                if (url_count  > (*ret_len)) {
-                    tmp = realloc((*ret), url_count * sizeof(**ret));
+                if (url_count  > input->ret_len) {
+                    tmp = realloc((input->ret), url_count * sizeof(char *));
                     if (0 == tmp) {
                         orcerror("%s (%d)\n", strerror(errno), errno);
                         regfree(&regex);
                         free(str);
                         return -1;
                     }
-                    (*ret_len) = url_count;
-                    (*ret) = tmp;
+                    input->ret_len = url_count;
+                    input->ret = tmp;
                 } else {
-                    tmp = (*ret);
+                    tmp = input->ret;
                 }
                 tmp[url_count - 1] = str;
             }

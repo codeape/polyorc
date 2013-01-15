@@ -144,10 +144,12 @@ static void mcode_or_die(const char *where, CURLMcode code) {
 static void analyze_page(global_info *global, char *page) {
     /* Analyze */
     int matches = 0;
-    if(-1 == (matches = find_urls(page, global->arg->excludes,
-                                  global->arg->excludes_len,
-                                  &(global->urls_list),
-                                  &(global->urls_list_len))))
+    find_urls_input input;
+    input.excludes = global->arg->excludes;
+    input.excludes_len = global->arg->excludes_len;
+    input.ret = global->urls_list;
+    input.ret_len = global->urls_list_len;
+    if(-1 == (matches = find_urls(page, &input)))
     {
         if (0 != global->urls_list_len) {
             free_array_of_charptr_incl(&(global->urls_list),
@@ -155,6 +157,8 @@ static void analyze_page(global_info *global, char *page) {
         }
         exit(EXIT_FAILURE);
     }
+    global->urls_list = input.ret;
+    global->urls_list_len = input.ret_len;
 
     /* Save */
     int i;
@@ -400,7 +404,7 @@ static void new_conn(char *url, global_info *global) {
         exit(EXIT_FAILURE);
     }
 
-    conn->memory = malloc(1);
+    conn->memory = calloc(1, sizeof(char));
     conn->memory_size = 0;
 
     conn->global = global;
@@ -532,5 +536,6 @@ void crawl(arguments *arg) {
         i++;
     }
     orcout(orcm_debug, "Freed %d url items.\n", i);
+    free(global.target_name);
 }
 

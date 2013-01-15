@@ -20,15 +20,15 @@
 
 #include <stdlib.h>
 
-struct orc_match {
-    char *url;
-    int len;
-    struct orc_match *next;
-};
+typedef struct _find_urls_input {
+    char **excludes;
+    int excludes_len;
+    char **ret;
+    int ret_len;
+} find_urls_input;
 
 int find_search_name(const char *url, char *out, size_t out_len);
 
-int find_urls(char *html, char **excludes, int excludes_len,
-              char ***ret, int *ret_len);
+int find_urls(char *html, find_urls_input* input);
 
 #endif
