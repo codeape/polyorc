@@ -10,7 +10,9 @@ def configure(ctx):
 
 def build(ctx):
     libs = []
-    if ("DARWIN" == ctx.env.DEST_OS.upper()):
+    if ("LINUX" == ctx.env.DEST_OS.upper()):
+        libs = ['curl', 'ev', 'm']
+    elif ("DARWIN" == ctx.env.DEST_OS.upper()):
         libs = ['curl', 'argp', 'ev']
     ctx.program(
         source      = 'main.c spider.c',
