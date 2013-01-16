@@ -1,3 +1,9 @@
+
+def configure(ctx):
+    print("polyorcboss configure")
+    ctx.standard_defs()
+    ctx.write_config_header('config.h')
+
 def build(ctx):
     ctx.program(
         source      = 'main.c',

@@ -1,3 +1,8 @@
+def configure(ctx):
+    print("polyorctest configure")
+    ctx.standard_defs()
+    ctx.write_config_header('config.h')
+
 def build(ctx):
     ctx.program(
         source      = 'main.c testpolyorcbintree.c',
