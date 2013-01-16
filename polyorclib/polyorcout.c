@@ -21,7 +21,7 @@
 #include <stdarg.h>
 
 #define RESETCOLOR "\033[0m"
-#define SELECTCOLOR "\033[%d;%d;m"
+#define SELECTCOLOR "\033[%dm\033[%dm"
 
 static enum polyorc_verbosity orc_verbosity = orcm_normal;
 static enum polyorc_color orc_color = orcc_no_color;
