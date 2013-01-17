@@ -21,6 +21,8 @@
 #include <stdlib.h>
 
 typedef struct _find_urls_input {
+    char *search_name;
+    char *url;
     char **excludes;
     int excludes_len;
     char **ret;

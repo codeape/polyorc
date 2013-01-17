@@ -141,15 +141,17 @@ static void mcode_or_die(const char *where, CURLMcode code) {
 }
 
 /* Find urls in a page and keep them */
-static void analyze_page(global_info *global, char *page) {
+static void analyze_page(global_info *global, conn_info *conn) {
     /* Analyze */
     int matches = 0;
     find_urls_input input;
+    input.search_name = global->target_name;
+    input.url = conn->url;
     input.excludes = global->arg->excludes;
     input.excludes_len = global->arg->excludes_len;
     input.ret = global->urls_list;
     input.ret_len = global->urls_list_len;
-    if(-1 == (matches = find_urls(page, &input)))
+    if(-1 == (matches = find_urls(conn->memory, &input)))
     {
         if (0 != global->urls_list_len) {
             free_array_of_charptr_incl(&(global->urls_list),
@@ -190,11 +192,6 @@ static void read_new_pages(global_info *global) {
             bintree_add(&(global->url_tree), url, info);
             new_conn(url, global);
             orcstatus(orcm_verbose, orc_green, "added", "%s\n", url);
-            if(0 > fprintf(global->out, "%s\n", url)) {
-                orcerror("%s (%d) %s\n", strerror(errno), errno,
-                         global->arg->out_file);
-                exit(EXIT_FAILURE);
-            }
         }
     }
 }
@@ -222,8 +219,14 @@ static void check_multi_info(global_info *global) {
             /* Cleanup the finished easy handle */
             curl_multi_remove_handle(global->multi, easy);
             curl_easy_cleanup(easy);
+            /* Write visited url to file */
+            if(0 > fprintf(global->out, "%s\n", conn->url)) {
+                orcerror("%s (%d) %s\n", strerror(errno), errno,
+                         global->arg->out_file);
+                exit(EXIT_FAILURE);
+            }
             /* Analyze here */
-            analyze_page(global, conn->memory);
+            analyze_page(global, conn);
             /* Collect stats */
             global->total_bytes += conn->memory_size;
             /* Cleanups after download */
