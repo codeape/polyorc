@@ -130,6 +130,36 @@ int find_search_name(const char *url, char *out, size_t out_len) {
     return 0;
 }
 
+int is_excluded(const char* url, find_urls_input* input) {
+    /* Apply exclude patterns */
+    int j = 0;
+    regex_t regex_exclude;
+    int status_exclude;
+    int exclude = 0;
+    while (input->excludes_len > j && !exclude) {
+        status_exclude = regcomp(&regex_exclude, input->excludes[j],
+                                 REG_EXTENDED);
+        if (0 != status_exclude) {
+            _orc_match_regerror(status_exclude, &regex_exclude,
+                                input->excludes[j]);
+            regfree(&regex_exclude);
+            return -1;
+        }
+        status_exclude = regexec(&regex_exclude, url, 0, 0, 0);
+        if (0 == status_exclude) {
+            exclude = 1;
+        } else if (REG_NOMATCH != status_exclude) {
+            _orc_match_regerror(status_exclude, &regex_exclude,
+                                input->excludes[j]);
+            regfree(&regex_exclude);
+            return -1;
+        }
+        regfree(&regex_exclude);
+        j++;
+    }
+    return exclude;
+}
+
 /**
  * Searches a buffer for html links by looking for href and src
  * attributes.
@@ -185,34 +215,11 @@ int find_urls(char *html, find_urls_input* input)
             str[str_len - 1] = '\0';
             current = &(current[pmatch[1].rm_eo]);
 
-            /* Apply exclude patterns */
-            int j = 0;
-            regex_t regex_exclude;
-            int status_exclude;
-            int exclude = 0;
-            while (input->excludes_len > j && !exclude) {
-                status_exclude = regcomp(&regex_exclude, input->excludes[j],
-                                         REG_EXTENDED);
-                if (0 != status_exclude) {
-                    _orc_match_regerror(status_exclude, &regex_exclude,
-                                        find_pattern);
-                    regfree(&regex_exclude);
-                    regfree(&regex);
-                    free(str);
-                    return -1;
-                }
-                status_exclude = regexec(&regex_exclude, str, 0, 0, 0);
-                if (0 == status_exclude) {
-                    exclude = 1;
-                } else if (REG_NOMATCH != status_exclude) {
-                    _orc_match_regerror(status_exclude, &regex, find_pattern);
-                    regfree(&regex_exclude);
-                    regfree(&regex);
-                    free(str);
-                    return -1;
-                }
-                regfree(&regex_exclude);
-                j++;
+            int exclude = is_excluded(str, input);
+            if (-1 == exclude) {
+                regfree(&regex);
+                free(str);
+                return -1;
             }
 
             /* Execute include or exclude */
