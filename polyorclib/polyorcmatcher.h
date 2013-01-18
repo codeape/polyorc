@@ -20,13 +20,17 @@
 
 #include <stdlib.h>
 
+/**
+ * A structure that is used for collecting input when analyzing
+ * html documents to gather urls.
+ */
 typedef struct _find_urls_input {
-    char *search_name;
-    char *url;
-    char **excludes;
-    int excludes_len;
-    char **ret;
-    int ret_len;
+    char *search_name; /**< The domain part of an url */
+    char *url; /**< The curl of the analyzed html document */
+    char **excludes; /**< Regex exclude patterns */
+    int excludes_len; /**<  The number of exclude patterns */
+    char **ret; /**< The return buffer */
+    int ret_len; /**< The max number of items in the return */
 } find_urls_input;
 
 int find_search_name(const char *url, char *out, size_t out_len);

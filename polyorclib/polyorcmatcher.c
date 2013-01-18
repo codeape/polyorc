@@ -36,6 +36,19 @@ void _orc_match_regerror(int errcode, const regex_t *preg, const char *pattern)
     free(errbuff);
 }
 
+/**
+ * Identifies and copies the domain part of an url. Example:
+ * input "http://www.example.com/index.html" outputs
+ * "example.com".
+ *
+ * \author Oscar Norlander
+ *
+ * \param url The url to analyze.
+ * \param out A output buffer to put the result in.
+ * \param out_len The lengt of the output buffer.
+ *
+ * \return int
+ */
 int find_search_name(const char *url, char *out, size_t out_len) {
     regex_t regex;
     regmatch_t pmatch[2]; // We use 2 to avoid memleak
@@ -124,11 +137,7 @@ int find_search_name(const char *url, char *out, size_t out_len) {
  * @author Oscar Norlander
  *
  * @param html The buffer containing html.
- * @param excludes Regex exclude patterns
- * @param excludes_len The number of exclude patterns
- * @param ret The return buffer.
- * @param ret_len The max number of returns the return buffer
- *                currently suport.*
+ * @param input See find_urls_input.
  *
  * @return int The number of urls found.
  */
