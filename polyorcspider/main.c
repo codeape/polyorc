@@ -139,7 +139,19 @@ static error_t parse_opt(int key, char *opt_arg, struct argp_state *state)
             /* Too many arguments. */
             argp_usage(state);
         }
-        arg->url = opt_arg;
+        if (('h'== opt_arg[0] && 't' == opt_arg[1] &&'t' == opt_arg[2] &&
+             'p' == opt_arg[3] && ':' == opt_arg[4] && '/' == opt_arg[5] &&
+             '/' == opt_arg[6]) ||
+            ('h'== opt_arg[0] && 't' == opt_arg[1] &&'t' == opt_arg[2] &&
+             'p' == opt_arg[3] && 's' == opt_arg[4] && ':' == opt_arg[5] &&
+             '/' == opt_arg[6] && '/'== opt_arg[7]))
+        {
+            arg->url = opt_arg;
+        } else {
+            orcerror("Add http:// or https:// to your target url.\n",
+                     strerror(errno), errno);
+            exit(EXIT_FAILURE);
+        }
         break;
     case ARGP_KEY_END:
         if (state->arg_num < 1) {

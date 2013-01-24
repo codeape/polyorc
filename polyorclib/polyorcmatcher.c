@@ -41,13 +41,13 @@ void _orc_match_regerror(int errcode, const regex_t *preg, const char *pattern)
  * input "http://www.example.com/index.html" outputs
  * "example.com".
  *
- * \author Oscar Norlander
+ * @author Oscar Norlander
  *
- * \param url The url to analyze.
- * \param out A output buffer to put the result in.
- * \param out_len The lengt of the output buffer.
+ * @param url The url to analyze.
+ * @param out A output buffer to put the result in.
+ * @param out_len The lengt of the output buffer.
  *
- * \return int
+ * @return int 1 on succes 0 on fail
  */
 int find_search_name(const char *url, char *out, size_t out_len) {
     regex_t regex;
@@ -130,7 +130,60 @@ int find_search_name(const char *url, char *out, size_t out_len) {
     return 0;
 }
 
-int is_excluded(const char* url, find_urls_input* input) {
+/**
+ * Identifies and copies a useful prefix from an url. Example:
+ * input "http://www.example.com/index.html" outputs
+ * "http://www.example.com".
+ *
+ * @author Oscar Norlander
+ *
+ * @param url The url to analyze.
+ * @param out A output buffer to put the result in.
+ * @param out_len The lengt of the output buffer.
+ *
+ * @return int 1 on succes 0 on fail
+ */
+int find_prefix(const char *url, char *out, size_t out_len) {
+    const char *start_url = url;
+    const char *end_url = 0;
+
+    /* Strip protocol part */
+    if ('h' == url[0] && 't' == url[1] && 't' == url[2] && 'p' == url[3] &&
+        ':' == url[4] && '/' == url[5] && '/' == url[6])
+    {
+        /* http */
+        start_url += 7;
+    } else if ('h' == url[0] && 't' == url[1] && 't' == url[2] &&
+               'p' == url[3] && 's' == url[4] && ':' == url[5] &&
+               '/' == url[6] && '/' == url[7])
+    {
+        /* https */
+        start_url += 8;
+    }
+
+    int cpy_len = strnlen(url, out_len) + 1;
+    if (0 != (end_url = index(start_url, '/'))) {
+        cpy_len = (end_url - url) + 1;
+    }
+    if (cpy_len > out_len) {
+        return 0;
+    }
+    strncpy(out, url, cpy_len);
+
+    cpy_len = strnlen(out, out_len);
+    if ('/' == out[cpy_len - 1]) {
+        out[cpy_len - 1] = '\0';
+    }
+
+    return 1;
+}
+
+/* Applies the exclude patterns
+   returns 1 == exclude
+           0 == include
+          -1 == error
+   */
+int is_excluded(const char* url, const find_urls_input* input) {
     /* Apply exclude patterns */
     int j = 0;
     regex_t regex_exclude;

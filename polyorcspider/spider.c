@@ -34,6 +34,8 @@
 #include <ev.h>
 #include <sys/time.h>
 
+#define SEARCH_NAME_LEN 254
+
 /* A url fifo node*/
 typedef struct _url_node {
    char *url;
@@ -50,15 +52,13 @@ typedef struct _global_info {
     struct ev_timer timer_event;
     int still_running;
     CURLM *multi;
-    arguments *arg;
-    char *target_name;
-    size_t target_name_len;
+    find_urls_input input;
+    int job_max;
     int job_count;
     url_node *url_out;
     url_node *url_in;
     bintree_root url_tree;
-    char **urls_list;
-    int urls_list_len;
+    const char *out_name;
     FILE *out;
     long total_bytes;
 } global_info;
@@ -144,41 +144,35 @@ static void mcode_or_die(const char *where, CURLMcode code) {
 static void analyze_page(global_info *global, conn_info *conn) {
     /* Analyze */
     int matches = 0;
-    find_urls_input input;
-    input.search_name = global->target_name;
-    input.url = conn->url;
-    input.excludes = global->arg->excludes;
-    input.excludes_len = global->arg->excludes_len;
-    input.ret = global->urls_list;
-    input.ret_len = global->urls_list_len;
-    if(-1 == (matches = find_urls(conn->memory, &input)))
+    global->input.url = conn->url;
+
+    if(-1 == (matches = find_urls(conn->memory, &(global->input))))
     {
-        if (0 != global->urls_list_len) {
-            free_array_of_charptr_incl(&(global->urls_list),
-                                       global->urls_list_len);
+        if (0 != global->input.ret_len) {
+            free_array_of_charptr_incl(&(global->input.ret),
+                                       global->input.ret_len);
         }
         exit(EXIT_FAILURE);
     }
-    global->urls_list = input.ret;
-    global->urls_list_len = input.ret_len;
+    global->input.url = 0;
 
     /* Save */
     int i;
     for (i = 0; i < matches; i++) {
-        size_t prefix_len = strlen(global->arg->url);
-        size_t url_len = strlen(global->urls_list[i]);
+        size_t prefix_len = strlen(global->input.prefix_name);
+        size_t url_len = strlen(global->input.ret[i]);
         size_t total = prefix_len + url_len + 1;
         char *caturl = calloc(total,  sizeof(char));
-        strncpy(caturl, global->arg->url, total);
-        strncat(caturl, global->urls_list[i], url_len + 1);
+        strncpy(caturl, global->input.prefix_name, total);
+        strncat(caturl, global->input.ret[i], url_len + 1);
         url_add(global, caturl);
-        free(global->urls_list[i]);
-        global->urls_list[i] = 0;
+        free(global->input.ret[i]);
+        global->input.ret[i] = 0;
     }
 }
 
 static void read_new_pages(global_info *global) {
-    int max_count = global->arg->max_jobs;
+    int max_count = global->job_max;
     char* url = 0;
     while (global->job_count <= max_count && 0 != (url = url_get(global))) {
         url_info *info = 0;
@@ -222,7 +216,7 @@ static void check_multi_info(global_info *global) {
             /* Write visited url to file */
             if(0 > fprintf(global->out, "%s\n", conn->url)) {
                 orcerror("%s (%d) %s\n", strerror(errno), errno,
-                         global->arg->out_file);
+                         global->out_name);
                 exit(EXIT_FAILURE);
             }
             /* Analyze here */
@@ -463,35 +457,7 @@ void print_stats(global_info *global, struct timeval *start,
     orcout(orcm_quiet, "%d\n", global->url_tree.node_count);
 }
 
-void crawl(arguments *arg) {
-    global_info global;
-    memset(&global, 0, sizeof(global_info));
-
-    /* Init before looping starts */
-    if (0 == (global.out = fopen(arg->out_file, "w+"))) {
-        orcerror("%s (%d) %s\n", strerror(errno), errno, arg->out_file);
-        exit(EXIT_FAILURE);
-    }
-    global.arg = arg;
-    global.loop = ev_default_loop(0);
-    global.multi = curl_multi_init();
-    ev_timer_init(&(global.timer_event), socket_action_timer_cb, 0., 0.);
-    global.timer_event.data = &global;
-    curl_multi_setopt(global.multi, CURLMOPT_TIMERFUNCTION, multi_timer_cb);
-    curl_multi_setopt(global.multi, CURLMOPT_TIMERDATA, &global);
-    curl_multi_setopt(global.multi, CURLMOPT_SOCKETFUNCTION, sock_cb);
-    curl_multi_setopt(global.multi, CURLMOPT_SOCKETDATA, &global);
-    bintree_init(&(global.url_tree), bintree_streq, free_tree);
-
-    global.target_name_len = 254;
-    global.target_name = calloc(global.target_name_len, sizeof(char));
-    if (!find_search_name(arg->url, global.target_name, global.target_name_len))
-    {
-        orcerror("not a valid domain name or ip in: %s\n", arg->url);
-        exit(EXIT_FAILURE);
-    }
-    orcoutc(orc_reset, orc_blue, "Target %s\n", global.target_name);
-
+void add_first_call(arguments *arg, global_info *global) {
     /* Copy the main url */
     size_t root_url_len = strnlen(arg->url, MAX_URL_LEN + 10);
     if (root_url_len > MAX_URL_LEN) {
@@ -512,9 +478,58 @@ void crawl(arguments *arg) {
     strncpy(root_url, arg->url, root_url_len);
     root_url[root_url_len] = '\0';
     /* Add a connection to the url where we will start the spider */
-    new_conn(root_url, &global);
+    new_conn(root_url, global);
     /* root_url and info are freed in bintree_free */
-    bintree_add(&(global.url_tree), root_url, info);
+    bintree_add(&(global->url_tree), root_url, info);
+}
+
+void crawl(arguments *arg) {
+    global_info global;
+    memset(&global, 0, sizeof(global_info));
+    char search_name[SEARCH_NAME_LEN];
+    memset(search_name, '\0', SEARCH_NAME_LEN * sizeof(char));
+    char prefix_name[MAX_URL_LEN];
+    memset(prefix_name, '\0', MAX_URL_LEN * sizeof(char));
+
+    /* Init before looping starts */
+    global.out_name = arg->out_file;
+    if (0 == (global.out = fopen(global.out_name, "w+"))) {
+        orcerror("%s (%d) %s\n", strerror(errno), errno, global.out_name);
+        exit(EXIT_FAILURE);
+    }
+
+    global.job_max = arg->max_jobs;
+    global.loop = ev_default_loop(0);
+    global.multi = curl_multi_init();
+    ev_timer_init(&(global.timer_event), socket_action_timer_cb, 0., 0.);
+    global.timer_event.data = &global;
+    curl_multi_setopt(global.multi, CURLMOPT_TIMERFUNCTION, multi_timer_cb);
+    curl_multi_setopt(global.multi, CURLMOPT_TIMERDATA, &global);
+    curl_multi_setopt(global.multi, CURLMOPT_SOCKETFUNCTION, sock_cb);
+    curl_multi_setopt(global.multi, CURLMOPT_SOCKETDATA, &global);
+    bintree_init(&(global.url_tree), bintree_streq, free_tree);
+
+    global.input.search_name = search_name;
+    global.input.search_name_len = SEARCH_NAME_LEN;
+    global.input.prefix_name = prefix_name;
+    global.input.prefix_name_len = MAX_URL_LEN;
+    global.input.excludes = arg->excludes;
+    global.input.excludes_len = arg->excludes_len;
+
+    if (!find_search_name(arg->url, search_name , SEARCH_NAME_LEN))
+    {
+        orcerror("not a valid domain name or ip in: %s\n", arg->url);
+        exit(EXIT_FAILURE);
+    }
+    orcoutc(orc_reset, orc_blue, "Target %s\n", global.input.search_name);
+
+    if (!find_prefix(arg->url, prefix_name, MAX_URL_LEN)) {
+        orcerror("not a valid length of domain name or ip in: %s\n", arg->url);
+        exit(EXIT_FAILURE);
+    }
+    orcoutc(orc_reset, orc_blue, "Target %s\n", global.input.prefix_name);
+
+    add_first_call(arg, &global);
 
     struct timeval start;
     struct timeval stop;
@@ -528,7 +543,7 @@ void crawl(arguments *arg) {
 
     /* Cleanups after looping */
     fclose(global.out);
-    free_array_of_charptr_incl(&(global.urls_list), global.urls_list_len);
+    free_array_of_charptr_incl(&(global.input.ret), global.input.ret_len);
     bintree_free(&(global.url_tree));
     curl_multi_cleanup(global.multi);
 
@@ -539,6 +554,5 @@ void crawl(arguments *arg) {
         i++;
     }
     orcout(orcm_debug, "Freed %d url items.\n", i);
-    free(global.target_name);
 }
 
