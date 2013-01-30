@@ -1,13 +1,20 @@
 def configure(ctx):
     print("polyorctest configure")
+    ctx.libckok('uriparser', 'uriparser/Uri.h')
     ctx.standard_defs()
     ctx.write_config_header('config.h')
 
 def build(ctx):
+    libs = []
+    if ("LINUX" == ctx.env.DEST_OS.upper()):
+        libs = ['uriparser']
+    elif ("DARWIN" == ctx.env.DEST_OS.upper()):
+        libs = ['uriparser']
     ctx.program(
-        source      = 'main.c testpolyorcbintree.c',
+        source      = 'main.c testpolyorcbintree.c testpolyorcmatcher.c',
         target      = 'polyorctest',
         includes    = '.',
+        lib         = libs,
         libpath     = ['/usr/lib', '/usr/local/lib'],
         cflags      = [ '-Wall', '-g' ],
         use         = 'intern_polyorclib'

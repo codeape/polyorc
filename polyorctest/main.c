@@ -16,11 +16,13 @@
 */
 
 #include "testpolyorcbintree.h"
+#include "testpolyorcmatcher.h"
 
 #include <stdlib.h>
 
 int main(int argc, char **argv) {
     test_polyorcbintree();
+    test_polyorcmatcher();
 
     return EXIT_SUCCESS;
 }

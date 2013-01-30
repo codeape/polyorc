@@ -11,9 +11,9 @@ def configure(ctx):
 def build(ctx):
     libs = []
     if ("LINUX" == ctx.env.DEST_OS.upper()):
-        libs = ['curl', 'ev', 'm']
+        libs = ['curl', 'ev', 'm', 'uriparser']
     elif ("DARWIN" == ctx.env.DEST_OS.upper()):
-        libs = ['curl', 'argp', 'ev']
+        libs = ['curl', 'argp', 'ev', 'uriparser']
     ctx.program(
         source      = 'main.c spider.c',
         target      = 'polyorcspider',

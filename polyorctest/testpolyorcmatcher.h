@@ -15,23 +15,8 @@
  Polyorc is under BSD 2-Clause License (see LICENSE file)
 */
 
-#ifndef COMMON_H
-#define COMMON_H
+#ifndef TESTPOLYORCMATCHER_H
 
-#include "config.h"
-#include "polyorcout.h"
-
-/* Used by main to communicate with parse_opt. */
-typedef struct _arguments {
-    enum polyorc_verbosity verbosity;
-    enum polyorc_color color;
-    int max_jobs;
-    const char *url;
-    const char *out_file;
-    char **excludes;
-    int excludes_len;
-} arguments;
-
-#define ORC_USERAGENT ORC_NAME"/"ORC_VERSION
+void test_polyorcmatcher();
 
 #endif

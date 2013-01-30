@@ -3,6 +3,7 @@ def configure(ctx):
     print("polyorclib configure")
     ctx.standard_defs()
     ctx.libckok('json-c', 'json/json.h')
+    ctx.libckok('uriparser', 'uriparser/Uri.h')
     ctx.write_config_header('config.h')
 
 def build(ctx):

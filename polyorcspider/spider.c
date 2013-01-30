@@ -34,8 +34,6 @@
 #include <ev.h>
 #include <sys/time.h>
 
-#define SEARCH_NAME_LEN 254
-
 /* A url fifo node*/
 typedef struct _url_node {
    char *url;
@@ -43,6 +41,7 @@ typedef struct _url_node {
 } url_node;
 
 typedef struct _url_info {
+    int dead;
     int found_count;
 } url_info;
 
@@ -159,14 +158,7 @@ static void analyze_page(global_info *global, conn_info *conn) {
     /* Save */
     int i;
     for (i = 0; i < matches; i++) {
-        size_t prefix_len = strlen(global->input.prefix_name);
-        size_t url_len = strlen(global->input.ret[i]);
-        size_t total = prefix_len + url_len + 1;
-        char *caturl = calloc(total,  sizeof(char));
-        strncpy(caturl, global->input.prefix_name, total);
-        strncat(caturl, global->input.ret[i], url_len + 1);
-        url_add(global, caturl);
-        free(global->input.ret[i]);
+        url_add(global, global->input.ret[i]);
         global->input.ret[i] = 0;
     }
 }
@@ -185,7 +177,6 @@ static void read_new_pages(global_info *global) {
             info->found_count++;
             bintree_add(&(global->url_tree), url, info);
             new_conn(url, global);
-            orcstatus(orcm_verbose, orc_green, "added", "%s\n", url);
         }
     }
 }
@@ -198,6 +189,8 @@ static void check_multi_info(global_info *global) {
     CURLcode result;
     CURLMsg *msg;
     int msgs_left;
+    long response_code;
+    long connect_code;
 
     orcout(orcm_debug, "REMAINING: %d\n", global->still_running);
     while ((msg = curl_multi_info_read(global->multi, &msgs_left))) {
@@ -207,6 +200,9 @@ static void check_multi_info(global_info *global) {
             /* Retrive the connection info for a handle */
             curl_easy_getinfo(easy, CURLINFO_PRIVATE, &conn);
             curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &effective_url);
+            curl_easy_getinfo(easy, CURLINFO_RESPONSE_CODE, &response_code);
+            curl_easy_getinfo(easy, CURLINFO_HTTP_CONNECTCODE, &connect_code);
+            orcout(orcm_debug, "response code:%ld connect_code:%ld\n", response_code, connect_code);
             orcout(orcm_debug, "DONE: %s => (%d) %s\n", effective_url,
                    result, conn->error);
             orcout(orcm_debug, "%s", conn->memory);
@@ -214,22 +210,34 @@ static void check_multi_info(global_info *global) {
             curl_multi_remove_handle(global->multi, easy);
             curl_easy_cleanup(easy);
             /* Write visited url to file */
-            if(0 > fprintf(global->out, "%s\n", conn->url)) {
-                orcerror("%s (%d) %s\n", strerror(errno), errno,
-                         global->out_name);
-                exit(EXIT_FAILURE);
+            global->job_count--;
+            if (200 == response_code || 200 == connect_code) {
+                orcstatus(orcm_verbose, orc_green, "added", "%s\n", conn->url);
+                if(0 > fprintf(global->out, "%s\n", conn->url)) {
+                    orcerror("%s (%d) %s\n", strerror(errno), errno,
+                             global->out_name);
+                    exit(EXIT_FAILURE);
+                }
+                /* Analyze here */
+                analyze_page(global, conn);
+                /* Collect stats */
+                global->total_bytes += conn->memory_size;
+            } else {
+                /* Mark as dead */
+                url_info *info = 0;
+                if (0 != (info = (url_info *)
+                          bintree_find(&(global->url_tree), conn->url)))
+                {
+                    info->dead = 1;
+                    orcstatus(orcm_verbose, orc_red, "dead", "%s\n", conn->url);
+                }
             }
-            /* Analyze here */
-            analyze_page(global, conn);
-            /* Collect stats */
-            global->total_bytes += conn->memory_size;
+            /* Create new readers here */
+            read_new_pages(global);
             /* Cleanups after download */
             free(conn->url);
             free(conn->memory);
             free(conn);
-            global->job_count--;
-            /* Create new readers here */
-            read_new_pages(global);
         }
     }
 }
