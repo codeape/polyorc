@@ -52,7 +52,7 @@ static struct argp_option options[] = {
     {"debug",        'd', 0,       0, "Produce debug and verbose output" },
     {"color",        'c', 0,       0, "Color output" },
     {"no-color",     'n', 0,       0, "No color output" },
-    {"job",          'j', 0,       0, "Max parallell downloads (default " \
+    {"events",       'e', "INT",   0, "Max parallell downloads (default " \
                                       DEFAULT_MAX_JOBS_STR ")" },
     {"out",          'o', "FILE",  0, "Output file (default " DEFAULT_OUT ")"},
     {"exclude",     1001, "REGEX", 0, "Exclude pattern" },
@@ -106,11 +106,12 @@ static error_t parse_opt(int key, char *opt_arg, struct argp_state *state)
         check_color(state,arg, orcc_no_color);
         arg->color = orcc_no_color;
         break;
-    case 'j':
+    case 'e':
         if(1 != sscanf(opt_arg, "%d", &(arg->max_jobs))) {
             orcerror("Job set to a non integer value.\n");
             argp_usage(state);
         }
+
         if (1 > arg->max_jobs) {
             orcerror("Job set to a 0 or a negative value.\n");
             argp_usage(state);
