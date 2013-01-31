@@ -30,8 +30,8 @@
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
 
-#define DEFAULT_MAX_JOBS 20
-#define DEFAULT_MAX_JOBS_STR STR(DEFAULT_MAX_JOBS)
+#define DEFAULT_MAX_EVENTS 20
+#define DEFAULT_MAX_EVENTS_STR STR(DEFAULT_MAX_EVENTS)
 
 #define DEFAULT_OUT "spider.out"
 
@@ -54,7 +54,7 @@ static struct argp_option options[] = {
     {"color",        'c', 0,       0, "Color output" },
     {"no-color",     'n', 0,       0, "No color output" },
     {"events",       'e', "INT",   0, "Max parallell downloads (default " \
-                                      DEFAULT_MAX_JOBS_STR ")" },
+                                      DEFAULT_MAX_EVENTS_STR ")" },
     {"out",          'o', "FILE",  0, "Output file (default " DEFAULT_OUT ")"},
     {"exclude",     1001, "REGEX", 0, "Exclude pattern" },
     { 0 }
@@ -181,7 +181,7 @@ int main(int argc, char *argv[])
     /* Default values. */
     arg.verbosity = orcm_not_set;
     arg.color = orcc_not_set;
-    arg.max_jobs = DEFAULT_MAX_JOBS;
+    arg.max_jobs = DEFAULT_MAX_EVENTS;
     arg.url = 0;
     arg.out_file = DEFAULT_OUT;
     arg.excludes = 0;
