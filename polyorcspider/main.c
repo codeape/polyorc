@@ -40,7 +40,8 @@ const char *argp_program_bug_address = ORC_BUG_ADDRESS;
 
 /* Program documentation. */
 static char doc[] =
-   "S";
+   "This is a small web spider that uses parallel connections. The only\n"\
+   "mandatory argument is an url prefixed with http:// or https://.";
 
 /* A description of the arguments we accept. */
 static char args_doc[] = "URL";
