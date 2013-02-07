@@ -144,7 +144,6 @@ static void analyze_page(global_info *global, conn_info *conn) {
     /* Analyze */
     int matches = 0;
     global->input.url = conn->url;
-
     if(-1 == (matches = find_urls(conn->memory, &(global->input))))
     {
         if (0 != global->input.ret_len) {
@@ -229,8 +228,8 @@ static void check_multi_info(global_info *global) {
                           bintree_find(&(global->url_tree), conn->url)))
                 {
                     info->dead = 1;
-                    orcstatus(orcm_verbose, orc_red, "dead", "%s\n", conn->url);
                 }
+                orcstatus(orcm_verbose, orc_red, "dead", "%s\n", conn->url);
             }
             /* Create new readers here */
             read_new_pages(global);
@@ -426,6 +425,7 @@ static void new_conn(char *url, global_info *global) {
     curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_TIME, 3L);
     curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_LIMIT, 10L);
     curl_easy_setopt(conn->easy, CURLOPT_USERAGENT, ORC_USERAGENT);
+    curl_easy_setopt(conn->easy, CURLOPT_FOLLOWLOCATION, 1);
 
     orcout(orcm_debug, "Adding easy %p to multi %p (%s)\n", conn->easy, global->multi, url);
     rc = curl_multi_add_handle(global->multi, conn->easy);
@@ -496,8 +496,6 @@ void crawl(arguments *arg) {
     memset(&global, 0, sizeof(global_info));
     char search_name[SEARCH_NAME_LEN];
     memset(search_name, '\0', SEARCH_NAME_LEN * sizeof(char));
-    char prefix_name[MAX_URL_LEN];
-    memset(prefix_name, '\0', MAX_URL_LEN * sizeof(char));
 
     /* Init before looping starts */
     global.out_name = arg->out_file;
@@ -519,8 +517,6 @@ void crawl(arguments *arg) {
 
     global.input.search_name = search_name;
     global.input.search_name_len = SEARCH_NAME_LEN;
-    global.input.prefix_name = prefix_name;
-    global.input.prefix_name_len = MAX_URL_LEN;
     global.input.excludes = arg->excludes;
     global.input.excludes_len = arg->excludes_len;
 
@@ -530,12 +526,6 @@ void crawl(arguments *arg) {
         exit(EXIT_FAILURE);
     }
     orcoutc(orc_reset, orc_blue, "Target %s\n", global.input.search_name);
-
-    if (!find_prefix(arg->url, prefix_name, MAX_URL_LEN)) {
-        orcerror("not a valid length of domain name or ip in: %s\n", arg->url);
-        exit(EXIT_FAILURE);
-    }
-    orcoutc(orc_reset, orc_blue, "Target %s\n", global.input.prefix_name);
 
     add_first_call(arg, &global);
 

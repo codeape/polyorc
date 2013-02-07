@@ -63,6 +63,7 @@ void test_polyorcmatcher() {
         "<a href=\"localhost\">e</a>\n"\
         "<a href=\"http://localhost/\">e</a>\n"\
         "<a href=\"validator.w3.org\">e</a>\n"\
+        "<a href=\"/download/pyguest.py\">e</a>\n"\
         "<div class=\"center\" style=\"width:150px\" >\n"\
         "<br />\n"\
         "<code>int * func() {</code><br />\n"\
@@ -89,12 +90,9 @@ void test_polyorcmatcher() {
 
     input.search_name = calloc(SEARCH_NAME_LEN, sizeof(char));
     input.search_name_len = SEARCH_NAME_LEN;
-    input.prefix_name = calloc(MAX_URL_LEN, sizeof(char));
-    input.prefix_name_len = MAX_URL_LEN;
     input.url = calloc(MAX_URL_LEN, sizeof(char));
 
     strncpy(input.search_name, "example.com\0", SEARCH_NAME_LEN);
-    strncpy(input.prefix_name, "http://www.example.com\0", MAX_URL_LEN);
     strncpy(input.url, "http://www.example.com/brex/index.html\0", MAX_URL_LEN);
 
     int matches = find_urls(html, &input);
@@ -106,6 +104,5 @@ void test_polyorcmatcher() {
 
     free_array_of_charptr_incl(&(input.ret), input.ret_len);
     free(input.search_name);
-    free(input.prefix_name );
     free(input.url);
 }

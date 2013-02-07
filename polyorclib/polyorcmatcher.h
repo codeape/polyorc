@@ -33,8 +33,6 @@
 typedef struct _find_urls_input {
     char *search_name; /**< The domain part of an url */
     int search_name_len; /**< The prefix part of an url */
-    char *prefix_name; /**< The prefix part of an url */
-    int prefix_name_len; /**< The domain part of an url */
     char *url; /**< The curl of the analyzed html document */
     char **excludes; /**< Regex exclude patterns */
     int excludes_len; /**<  The number of exclude patterns */
@@ -43,8 +41,6 @@ typedef struct _find_urls_input {
 } find_urls_input;
 
 int find_search_name(const char *url, char *out, size_t out_len);
-
-int find_prefix(const char *url, char *out, size_t out_len);
 
 int find_urls(char *html, find_urls_input* input);
 

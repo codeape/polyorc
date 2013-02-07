@@ -33,7 +33,7 @@
 void _orc_match_regerror(int errcode, const regex_t *preg, const char *pattern)
 {
     size_t errbuff_len = regerror(errcode, preg, 0, 0);
-    char *errbuff = malloc(errbuff_len);
+    char *errbuff = calloc(errbuff_len, sizeof(char));
     regerror(errcode, preg, errbuff, errbuff_len);
     orcerror("%s 'regexp: %s'\n", errbuff, pattern);
     free(errbuff);
@@ -133,54 +133,6 @@ int find_search_name(const char *url, char *out, size_t out_len) {
     return 0;
 }
 
-/**
- * Identifies and copies a useful prefix from an url. Example:
- * input "http://www.example.com/index.html" outputs
- * "http://www.example.com".
- *
- * @author Oscar Norlander
- *
- * @param url The url to analyze.
- * @param out A output buffer to put the result in.
- * @param out_len The lengt of the output buffer.
- *
- * @return int 1 on succes 0 on fail
- */
-int find_prefix(const char *url, char *out, size_t out_len) {
-    const char *start_url = url;
-    const char *end_url = 0;
-
-    /* Strip protocol part */
-    if ('h' == url[0] && 't' == url[1] && 't' == url[2] && 'p' == url[3] &&
-        ':' == url[4] && '/' == url[5] && '/' == url[6])
-    {
-        /* http */
-        start_url += 7;
-    } else if ('h' == url[0] && 't' == url[1] && 't' == url[2] &&
-               'p' == url[3] && 's' == url[4] && ':' == url[5] &&
-               '/' == url[6] && '/' == url[7])
-    {
-        /* https */
-        start_url += 8;
-    }
-
-    int cpy_len = strnlen(url, out_len) + 1;
-    if (0 != (end_url = index(start_url, '/'))) {
-        cpy_len = (end_url - url) + 1;
-    }
-    if (cpy_len > out_len) {
-        return 0;
-    }
-    strncpy(out, url, cpy_len);
-
-    cpy_len = strnlen(out, out_len);
-    if ('/' == out[cpy_len - 1]) {
-        out[cpy_len - 1] = '\0';
-    }
-
-    return 1;
-}
-
 /* Applies the exclude patterns
    returns 1 == exclude
            0 == include
@@ -222,19 +174,6 @@ int is_excluded(const char* url, const find_urls_input* input) {
           -1 == error
 */
 int fix_url(char **url, const find_urls_input* input ) {
-    if ('/' == (*url)[0]) {
-        /* simple case prefix with domain */
-        size_t prefix_len = strlen(input->prefix_name);
-        size_t url_len = strlen((*url));
-        size_t total = prefix_len + url_len + 1;
-        char *caturl = calloc(total,  sizeof(char));
-        strncpy(caturl, input->prefix_name, total);
-        strncat(caturl, (*url), url_len + 1);
-        free(*url);
-        (*url)=caturl;
-        return 1;
-    }
-
     UriParserStateA state;
     UriUriA absolute_dest;
     UriUriA relative_source;
@@ -413,7 +352,7 @@ int find_urls(char *html, find_urls_input* input)
             }
             /* Copy links and move on */
             size_t str_len = (pmatch[1].rm_eo - pmatch[1].rm_so) + 1;
-            char *str = malloc(str_len);
+            char *str = calloc(str_len, sizeof(char));
             strncpy(str, &(current[pmatch[1].rm_so]), str_len);
             str[str_len - 1] = '\0';
             current = &(current[pmatch[1].rm_eo]);
