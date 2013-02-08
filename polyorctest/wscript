@@ -7,7 +7,7 @@ def configure(ctx):
 def build(ctx):
     libs = []
     if ("LINUX" == ctx.env.DEST_OS.upper()):
-        libs = ['uriparser']
+        libs = ['uriparser', 'm']
     elif ("DARWIN" == ctx.env.DEST_OS.upper()):
         libs = ['uriparser']
     ctx.program(
