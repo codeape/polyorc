@@ -28,23 +28,36 @@
 #define ORC_DEFAULT_ADMIN_PORT 7711
 #define ORC_DEFAULT_ADMIN_PORT_STR STR(ORC_DEFAULT_ADMIN_PORT)
 
+#define DEFAULT_MAX_EVENTS 20
+#define DEFAULT_MAX_EVENTS_STR STR(DEFAULT_MAX_EVENTS)
+
+#define DEFAULT_OUT "polyorc.out"
+
 const char *argp_program_version = ORC_VERSION;
 const char *argp_program_bug_address = ORC_BUG_ADDRESS;
 
 /* Program documentation. */
 static char doc[] =
-   "S";
+   "A short description.";
 
 /* A description of the arguments we accept. */
 static char args_doc[] = "PASSWORD";
 
 /* The options we understand. */
 static struct argp_option options[] = {
-    {"verbose",      'v', 0,      0, "Produce verbose output" },
-    {"quiet",        'q', 0,      0, "Don't produce any output" },
-    {"admin-port",   'a', "PORT", 0, "The admin port (default " \
-                                     ORC_DEFAULT_ADMIN_PORT_STR  ")"},
-    {"admin-ip",     'i', "IP",   0, "Bind admin port to spesifc ip."},
+    {"quiet",        'q', 0,       0, "Don't produce any output" },
+    {"verbose",      'v', 0,       0, "Produce verbose output" },
+    {"debug",        'd', 0,       0, "Produce debug and verbose output" },
+    {"color",        'c', 0,       0, "Color output" },
+    {"no-color",     'n', 0,       0, "No color output" },
+    {"events",       'e', "INT",   0, "Max parallell downloads per thread " \
+                                      "(default " DEFAULT_MAX_EVENTS_STR ")" },
+    {"out",          'o', "FILE",  0, "Output file (default " DEFAULT_OUT ")"},
+    {"exclude",     1001, "REGEX", 0, "Exclude pattern" },
+    {"jobs",         'j', "JOBS",  0, "The number of threads to use." },
+    {"admin-port",   'a', "PORT",  0, "The admin port (default " \
+                                      ORC_DEFAULT_ADMIN_PORT_STR  ")"},
+    {"admin-ip",     'i', "IP",    0, "Bind admin port to spesifc ip."},
     { 0 }
 };
 
