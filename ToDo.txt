@@ -1,0 +1,18 @@
+Spider:
+
+* Go throug the documentation in the code
+* Finish test case
+* Check all callocs
+* Switch mallocs to callocs
+* Switch all strcpy and strlen to strn*
+
+Polyorc:
+
+* Implement "default loop" with admin socket.
+* Implement "new loop" for worker threads.
+* Add argp documentation.
+* Add ncurses gui
+
+Polyorcboss:
+
+* Connect to Polyorc
