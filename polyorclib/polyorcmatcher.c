@@ -59,8 +59,6 @@ int find_search_name(const char *url, char *out, size_t out_len) {
     const char *pattern = "([a-zA-Z0-9][a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9]\\.[a-zA-Z]{2,6})$";
     const char *start_url = url;
 
-
-
     /* Strip protocol part */
     if ('h' == url[0] && 't' == url[1] && 't' == url[2] && 'p' == url[3] &&
         ':' == url[4] && '/' == url[5] && '/' == url[6])
@@ -79,6 +77,11 @@ int find_search_name(const char *url, char *out, size_t out_len) {
     char *name = 0;
     size_t name_len = 0;
     if (0 != (name = index(start_url, '/')) && name != start_url) {
+        name_len = (name - start_url) + 1;
+        name = calloc(name_len, sizeof(char));
+        strncpy(name, start_url, name_len);
+        name[name_len - 1] = '\0';
+    } else if (0 != (name = index(start_url, ':')) && name != start_url) {
         name_len = (name - start_url) + 1;
         name = calloc(name_len, sizeof(char));
         strncpy(name, start_url, name_len);
