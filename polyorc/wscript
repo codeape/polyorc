@@ -5,6 +5,7 @@ def configure(ctx):
     ctx.libckok('libcurl', 'curl/curl.h')
     ctx.libckok('libev', 'ev.h')
     ctx.libckok('argp', 'argp.h')
+    ctx.define('ORC_NAME', "polyorc")
     ctx.write_config_header('config.h')
 
 def build(ctx):
@@ -14,7 +15,7 @@ def build(ctx):
     elif ("DARWIN" == ctx.env.DEST_OS.upper()):
         libs = ['curl', 'ev', 'argp']
     ctx.program(
-        source      = 'main.c',
+        source      = 'main.c controll.c generator.c',
         target      = 'polyorc',
         includes    = '.',
         lib         = libs,
