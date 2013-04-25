@@ -504,7 +504,7 @@ void crawl(arguments *arg) {
         exit(EXIT_FAILURE);
     }
 
-    global.job_max = arg->max_jobs;
+    global.job_max = arg->max_events;
     global.loop = ev_default_loop(0);
     global.multi = curl_multi_init();
     ev_timer_init(&(global.timer_event), socket_action_timer_cb, 0., 0.);

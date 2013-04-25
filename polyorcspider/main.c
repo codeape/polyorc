@@ -108,12 +108,12 @@ static error_t parse_opt(int key, char *opt_arg, struct argp_state *state)
         arg->color = orcc_no_color;
         break;
     case 'e':
-        if(1 != sscanf(opt_arg, "%d", &(arg->max_jobs))) {
+        if(1 != sscanf(opt_arg, "%d", &(arg->max_events))) {
             orcerror("Job set to a non integer value.\n");
             argp_usage(state);
         }
 
-        if (1 > arg->max_jobs) {
+        if (1 > arg->max_events) {
             orcerror("Job set to a 0 or a negative value.\n");
             argp_usage(state);
         }
@@ -170,10 +170,6 @@ static error_t parse_opt(int key, char *opt_arg, struct argp_state *state)
 /* Our argp parser. */
 static struct argp argp = { options, parse_opt, args_doc, doc };
 
-// url
-// connections
-
-
 int main(int argc, char *argv[])
 {
     arguments arg;
@@ -181,7 +177,7 @@ int main(int argc, char *argv[])
     /* Default values. */
     arg.verbosity = orcm_not_set;
     arg.color = orcc_not_set;
-    arg.max_jobs = DEFAULT_MAX_EVENTS;
+    arg.max_events = DEFAULT_MAX_EVENTS;
     arg.url = 0;
     arg.out_file = DEFAULT_OUT;
     arg.excludes = 0;

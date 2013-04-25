@@ -25,7 +25,7 @@
 typedef struct _arguments {
     enum polyorc_verbosity verbosity;
     enum polyorc_color color;
-    int max_jobs;
+    int max_events;
     const char *url;
     const char *out_file;
     char **excludes;
