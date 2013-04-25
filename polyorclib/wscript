@@ -15,7 +15,8 @@ def build(ctx):
                            'polyorcutils.c',
                            'polyorcmatcher.c',
                            'polyorcbintree.c',
-                           'polyorcout.c'],
+                           'polyorcout.c',
+                           'polyorcsockutil.c'],
         cflags          = [ '-Wall', '-g' ],
         name            = "intern_polyorclib"
     )
