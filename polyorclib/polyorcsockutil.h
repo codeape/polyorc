@@ -19,19 +19,25 @@
 #define POLYORCSOCKUTIL_H
 
 #include <ev.h>
+#include <arpa/inet.h>
+
+typedef union _orc_sockaddr {
+    struct sockaddr_in addr4;
+    struct sockaddr_in6 addr6;
+} orc_sockaddr;
 
 typedef struct _orc_socket_info {
     ev_io io;
     int fd;
-    struct sockaddr *addr;
+    int ipv;
     int addr_size;
+    orc_sockaddr addr;
 } orc_socket_info;
 
 int setnonblock(int fd);
 
-int create_socket(const char *adminip,
-                  const int adminport,
-                  const int ipv,
-                  orc_socket_info *srv);
+void init_socket(const int ipv, orc_socket_info *srv);
+
+int create_socket(const char *ip, const int port, orc_socket_info *srv);
 
 #endif

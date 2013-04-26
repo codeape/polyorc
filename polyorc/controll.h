@@ -18,6 +18,8 @@
 #ifndef CONTROLL_H
 #define CONTROLL_H
 
-void controll_loop();
+#include "common.h"
+
+void controll_loop(polyarguments *arg);
 
 #endif

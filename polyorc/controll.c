@@ -24,17 +24,17 @@
 #include <ev.h>
 #include <errno.h>
 #include <string.h>
-#include <arpa/inet.h>
 
 int create_server(polyarguments *arg, orc_socket_info *srv) {
-    if (-1 == create_socket(arg->adminip, arg->adminport, arg->ipv, srv)) {
+    if (-1 == create_socket(arg->adminip, arg->adminport, srv)) {
         return -1;
     }
 
     /* Bind socket to address */
-    size_t socksize = arg->ipv == 4 ? sizeof(struct sockaddr_in) :
-                                      sizeof(struct sockaddr_in6);
-    if (0 != bind(srv->fd, srv->addr, socksize))
+    struct sockaddr *addr = 4 == srv->ipv ?
+        (struct sockaddr *) &(srv->addr.addr4) :
+        (struct sockaddr *) &(srv->addr.addr6);
+    if (0 != bind(srv->fd, addr, srv->addr_size))
     {
         orcstatus(orcm_normal, orc_red, "fail", "Bind\n");
         orcerror("%s (%d)\n", strerror(errno), errno);
@@ -74,7 +74,7 @@ void controll_loop(polyarguments *arg) {
 
     struct ev_loop *loop = ev_default_loop(0);
     orc_socket_info server;
-    memset(&server, 0, sizeof(orc_socket_info));
+    init_socket(arg->ipv, &server);
     if(-1 == create_server(arg, &server)) {
         return;
     }
