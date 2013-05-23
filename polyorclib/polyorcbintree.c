@@ -113,7 +113,7 @@ int _bintree_add(bintree_equal_fptr eq, bintree_node **node, void *key,
  * @param key The key for the value.
  * @param value The value to add to the tree.
  *
- * @return int returns 0 if key already exists and a nin zero
+ * @return int returns 0 if key already exists and a non zero
  *         value if not. If 0 is returned the value was not
  *         added to the tree.
  */

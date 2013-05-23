@@ -46,7 +46,8 @@ void init_socket(const int ipv, orc_socket_info *srv) {
     }
 }
 
-int create_socket(const char *ip, const int port, orc_socket_info *srv)
+int create_socket(const char *ip, const int port, orc_socket_info *srv,
+                  int block)
 {
     orcoutcl(orc_reset, orc_blue, "Socket ip version %d", srv->ipv);
     if (4 == srv->ipv) {
@@ -55,9 +56,11 @@ int create_socket(const char *ip, const int port, orc_socket_info *srv)
             orcerror("Socket error %s (%d)\n", strerror(errno), errno);
             return -1;
         }
-        if (-1 == setnonblock(srv->fd)) {
-            orcerror("Socket nonblock error %s (%d)\n", strerror(errno), errno);
-            return -1;
+        if (0 == block) {
+            if (-1 == setnonblock(srv->fd)) {
+                orcerror("Socket nonblock error %s (%d)\n", strerror(errno), errno);
+                return -1;
+            }
         }
         srv->addr.addr4.sin_family = AF_INET;
         srv->addr.addr4.sin_port = htons(port);
@@ -82,9 +85,11 @@ int create_socket(const char *ip, const int port, orc_socket_info *srv)
             orcerror("Socket error %s (%d)\n", strerror(errno), errno);
             return -1;
         }
-        if (-1 == setnonblock(srv->fd)) {
-            orcerror("Socket nonblock error %s (%d)\n", strerror(errno), errno);
-            return -1;
+        if (0 == block) {
+            if (-1 == setnonblock(srv->fd)) {
+                orcerror("Socket nonblock error %s (%d)\n", strerror(errno), errno);
+                return -1;
+            }
         }
         srv->addr.addr6.sin6_family = AF_INET6;
         srv->addr.addr6.sin6_port = htons(port);

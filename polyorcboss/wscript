@@ -2,13 +2,20 @@
 def configure(ctx):
     print("polyorcboss configure")
     ctx.standard_defs()
+    ctx.libckok('argp', 'argp.h')
     ctx.write_config_header('config.h')
 
 def build(ctx):
+    libs = []
+    if ("LINUX" == ctx.env.DEST_OS.upper()):
+        libs = ['m']
+    elif ("DARWIN" == ctx.env.DEST_OS.upper()):
+        libs = ['argp']
     ctx.program(
-        source      = 'main.c',
+        source      = 'main.c client.c',
         target      = 'polyorcboss',
         includes    = '.',
+        lib         = libs,
         libpath     = ['/usr/lib', '/usr/local/lib'],
         cflags      = [ '-Wall', '-g' ],
         use         = 'intern_polyorclib'

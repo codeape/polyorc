@@ -242,7 +242,7 @@ static void check_multi_info(global_info *global) {
 }
 
 /* Called by libevent when our "wait for socket actions" timeout expires */
-static void socket_action_timer_cb(EV_P_ struct ev_timer *timer, int revents) {
+static void socket_action_timer_cb(struct ev_loop *loop, struct ev_timer *timer, int revents) {
     orcout(orcm_debug, "%s  timer %p revents %i\n", __PRETTY_FUNCTION__,
            timer, revents);
     global_info *global = (global_info *)timer->data;
@@ -271,7 +271,7 @@ static int multi_timer_cb(CURLM *multi, long timeout_ms, global_info *global) {
 }
 
 /* Called by libevent when we get action on a multi socket */
-static void event_cb(EV_P_ struct ev_io *event_io, int revents) {
+static void event_cb(struct ev_loop *loop, struct ev_io *event_io, int revents) {
     orcout(orcm_debug, "%s  event_io %p revents %i\n", __PRETTY_FUNCTION__,
            event_io, revents);
     global_info *global = (global_info *)event_io->data;
