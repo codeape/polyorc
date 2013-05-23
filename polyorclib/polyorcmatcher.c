@@ -73,15 +73,15 @@ int find_search_name(const char *url, char *out, size_t out_len) {
         start_url += 8;
     }
 
-    /* Strip everything but the name name */
+    /* Strip everything but the name */
     char *name = 0;
     size_t name_len = 0;
-    if (0 != (name = index(start_url, '/')) && name != start_url) {
+    if (0 != (name = index(start_url, ':')) && name != start_url) {
         name_len = (name - start_url) + 1;
         name = calloc(name_len, sizeof(char));
         strncpy(name, start_url, name_len);
         name[name_len - 1] = '\0';
-    } else if (0 != (name = index(start_url, ':')) && name != start_url) {
+    } else if (0 != (name = index(start_url, '/')) && name != start_url) {
         name_len = (name - start_url) + 1;
         name = calloc(name_len, sizeof(char));
         strncpy(name, start_url, name_len);
@@ -96,7 +96,7 @@ int find_search_name(const char *url, char *out, size_t out_len) {
         return 0;
     }
 
-    /* check local host, name name and ip */
+    /* check local host, name and ip */
     if (0 == strcmp(name, "localhost")) {
         strncpy(out, name, out_len);
         free(name);
@@ -197,9 +197,10 @@ int fix_url(char **url, const find_urls_input* input ) {
         return 0;
     }
 
-    /* make realative url to absolute url etc.*/
-    /* relative_source holds for example "../TWO" now */
-    /* absolute_base holds for example "http://example.com/one/two/three" now */
+    /* make realative url to absolute url etc.
+       relative_source holds for example "../TWO" now
+       absolute_base holds for example "http://example.com/one/two/three" now
+     */
     if (uriAddBaseUriA(&absolute_dest, &relative_source, &absolute_base) != URI_SUCCESS) {
         uriFreeUriMembersA(&absolute_dest);
         uriFreeUriMembersA(&relative_source);
