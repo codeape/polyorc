@@ -69,9 +69,7 @@ void accept_cb(EV_P_ struct ev_io *event_io, int revents) {
 }
 
 void controll_loop(polyarguments *arg) {
-
     /* use ev_loop_new for the event loops in  all worker threads */
-
     struct ev_loop *loop = ev_default_loop(0);
     orc_socket_info server;
     init_socket(arg->ipv, &server);
