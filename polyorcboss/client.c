@@ -17,6 +17,10 @@
 
 #include <errno.h>
 #include <string.h>
+#include <ev.h>
+
+#include <curses.h>
+#include <signal.h>
 
 #include <unistd.h>
 
@@ -58,11 +62,51 @@ int create_client(bossarguments *arg, orc_socket_info *clientsoc) {
     return 0;
 }
 
+static void finish(int sig)
+{
+    endwin();
+
+    /* do your non-curses wrapup here */
+
+    exit(0);
+}
+
+
+void curses_cb(struct ev_loop *loop, struct ev_io *event_io, int revents) {
+    int ch = getch();
+    if (ch != ERR) {
+        //addch(ch); //echo on
+    }
+}
+
+void init_curses(struct ev_loop *loop, ev_io *io) {
+    /* initialize your non-curses data structures here */
+
+    signal(SIGINT, finish);      /* arrange interrupts to terminate */
+
+    initscr();      /* initialize the curses library */
+    keypad(stdscr, TRUE);  /* enable keyboard mapping */
+    nonl();         /* tell curses not to do NL->CR/NL on output */
+    cbreak();       /* take input chars one at a time, no wait for \n */
+    notimeout(stdscr, TRUE);
+    //nodelay(stdscr, TRUE);
+    echo();         /* echo input - in color */
+
+    /* Initialize and start a watcher to accepts client requests */
+    ev_io_init(io, curses_cb, fileno(stdin), EV_READ);
+    ev_io_start(loop, io);
+}
 
 void client_loop(bossarguments *arg) {
-    orc_socket_info client;
+    struct ev_loop *loop = ev_default_loop(0);
+    ev_io io;
+    init_curses(loop, &(io));
+
+    /*orc_socket_info client;
     init_socket(arg->ipv, &client);
     if(-1 == create_client(arg, &client)) {
         return;
-    }
+    }*/
+
+    ev_run(loop, 0);
 }
