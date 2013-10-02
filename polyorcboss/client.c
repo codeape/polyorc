@@ -21,12 +21,16 @@
 
 #include <curses.h>
 #include <signal.h>
-
+#include <stdlib.h>
 #include <unistd.h>
+//#include <limits.h> // MAX_INPUT
 
 #include "common.h"
 #include "client.h"
 #include "polyorcsockutil.h"
+
+//static char line_buffer[MAX_INPUT];
+static int line_index;
 
 int create_client(bossarguments *arg, orc_socket_info *clientsoc) {
     /* TODO: Make nonblocking */
@@ -74,13 +78,18 @@ static void finish(int sig)
 
 void curses_cb(struct ev_loop *loop, struct ev_io *event_io, int revents) {
     int ch = getch();
+
     if (ch != ERR) {
-        //addch(ch); //echo on
+        /*
+            Not needed!
+            addch(ch); //echo on
+        */
     }
 }
 
 void init_curses(struct ev_loop *loop, ev_io *io) {
     /* initialize your non-curses data structures here */
+    line_index = 0;
 
     signal(SIGINT, finish);      /* arrange interrupts to terminate */
 

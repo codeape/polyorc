@@ -25,6 +25,7 @@
 #include "polyorcutils.h"
 #include "polyorcmatcher.h"
 #include "polyorcout.h"
+#include "polyorcdefs.h"
 
 #include <errno.h>
 #include <stdio.h>

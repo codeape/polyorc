@@ -27,6 +27,7 @@
 #include "polyorcout.h"
 #include "polyorcutils.h"
 #include "controll.h"
+#include "generator.h"
 
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
@@ -36,6 +37,9 @@
 
 #define DEFAULT_MAX_EVENTS 20
 #define DEFAULT_MAX_EVENTS_STR STR(DEFAULT_MAX_EVENTS)
+
+#define DEFAULT_MAX_JOBS 16
+#define DEFAULT_MAX_JOBS_STR STR(DEFAULT_MAX_JOBS)
 
 #define DEFAULT_OUT "polyorc.out"
 
@@ -60,12 +64,14 @@ static struct argp_option options[] = {
                                       DEFAULT_MAX_EVENTS_STR ")" },
     {"out",          'o', "FILE",  0, "Output file (default " DEFAULT_OUT ")"},
     {"exclude",     1001, "REGEX", 0, "Exclude pattern" },
-    {"jobs",         'j', "JOBS",  0, "The number of threads to use." },
+    {"jobs",         'j', "JOBS",  0, "The number of threads to use" \
+                                      " (default " DEFAULT_MAX_JOBS_STR ")" },
     {"admin-port",   'a', "PORT",  0, "The admin port (default " \
                                       ORC_DEFAULT_ADMIN_PORT_STR  ")"},
     {"admin-ip",     'i', "IP",    0, "Bind admin port to spesifc ip"},
     {"ipv4",         '4', 0,       0, "Use ipv 4 for admin socket (default)"},
     {"ipv6",         '6', 0,       0, "Use ipv 6 for admin socket"},
+    {"file",         'f', "FILE",  0, "Bind admin port to spesifc ip"},
     { 0 }
 };
 
@@ -133,12 +139,12 @@ static error_t parse_opt(int key, char *opt_arg, struct argp_state *state)
         break;
     case 'e':
         if(1 != sscanf(opt_arg, "%d", &(arg->max_events))) {
-            orcerror("Job set to a non integer value.\n");
+            orcerror("Events set to a non integer value.\n");
             argp_usage(state);
         }
 
         if (1 > arg->max_events) {
-            orcerror("Job set to a 0 or a negative value.\n");
+            orcerror("Events set to a 0 or a negative value.\n");
             argp_usage(state);
         }
         break;
@@ -157,8 +163,21 @@ static error_t parse_opt(int key, char *opt_arg, struct argp_state *state)
         tmp[arg->excludes_len - 1] = opt_arg;
         arg->excludes = tmp;
         break;
+    case 'j':
+        if(1 != sscanf(opt_arg, "%d", &(arg->max_threads))) {
+            orcerror("Job set to a non integer value.\n");
+            argp_usage(state);
+        }
+
+        if (1 > arg->max_events) {
+            orcerror("Job set to a 0 or a negative value.\n");
+            argp_usage(state);
+        }
     case 'o':
         arg->out_file = opt_arg;
+        break;
+    case 'f':
+        arg->in_file = opt_arg;
         break;
     case 'i':
         arg->adminip = opt_arg;
@@ -173,6 +192,11 @@ static error_t parse_opt(int key, char *opt_arg, struct argp_state *state)
     case ARGP_KEY_END:
         if (state->arg_num != 0) {
             /* Not enough arguments. */
+            argp_usage(state);
+        }
+
+        if (0 == arg->in_file) {
+            orcerror("No file to process (see -f or --file)\n");
             argp_usage(state);
         }
         break;
@@ -193,8 +217,10 @@ int main(int argc, char *argv[])
     arg.verbosity = orcm_not_set;
     arg.color = orcc_not_set;
     arg.max_events = DEFAULT_MAX_EVENTS;
+    arg.max_threads = DEFAULT_MAX_JOBS;
     arg.url = 0;
     arg.out_file = DEFAULT_OUT;
+    arg.in_file = 0;
     arg.excludes = 0;
     arg.excludes_len = 0;
     arg.ipv = 4;
@@ -216,7 +242,9 @@ int main(int argc, char *argv[])
     init_polyorcout(arg.verbosity, arg.color);
 
     print_splash();
-    controll_loop(&arg);
+    //controll_loop(&arg);
+    generator_init(&arg);
+    generator_loop(&arg);
 
     free(arg.excludes);
 

@@ -15,28 +15,13 @@
  Polyorc is under BSD 2-Clause License (see LICENSE file)
 */
 
-#ifndef COMMON_H
-#define COMMON_H
+#ifndef POLYORCDEFS_H
+#define POLYORCDEFS_H
 
-#include "config.h"
-#include "polyorcout.h"
+/* De facto limit of url */
+#define MAX_URL_LEN 2000
 
-/* Used by main to communicate with parse_opt. */
-typedef struct _polyarguments {
-    enum polyorc_verbosity verbosity;
-    enum polyorc_color color;
-    int max_events;
-    int max_threads;
-    const char *url;
-    const char *out_file;
-    const char *in_file;
-    char **excludes;
-    int excludes_len;
-    int ipv;
-    const char *adminip;
-    int adminport;
-} polyarguments;
-
-#define ORC_USERAGENT ORC_NAME"/"ORC_VERSION
+/* DNS name max */
+#define SEARCH_NAME_LEN 254
 
 #endif

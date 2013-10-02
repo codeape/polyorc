@@ -18,4 +18,9 @@
 #ifndef GENERATOR_H
 #define GENERATOR_H
 
+#include <common.h>
+
+void generator_init(polyarguments *arg);
+void generator_loop(polyarguments *arg);
+
 #endif

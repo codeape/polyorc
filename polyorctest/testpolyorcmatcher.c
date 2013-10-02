@@ -18,6 +18,7 @@
 #include "testpolyorcmatcher.h"
 #include "polyorcmatcher.h"
 #include "polyorcutils.h"
+#include "polyorcdefs.h"
 
 #include <string.h>
 #include <stdio.h>

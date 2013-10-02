@@ -20,6 +20,6 @@ def build(ctx):
         includes    = '.',
         lib         = libs,
         libpath     = ['/usr/lib', '/usr/local/lib'],
-        cflags          = [ '-Wall', '-g' ],
+        cflags          = [ '-Wall', '-g' , '-pthread'],
         use         = 'intern_polyorclib'
     )

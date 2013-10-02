@@ -20,12 +20,6 @@
 
 #include <stdlib.h>
 
-/* De facto limit of url */
-#define MAX_URL_LEN 2000
-
-/* DNS name max */
-#define SEARCH_NAME_LEN 254
-
 /**
  * A structure that is used for collecting input when analyzing
  * html documents to gather urls.

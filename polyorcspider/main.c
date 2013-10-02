@@ -109,12 +109,12 @@ static error_t parse_opt(int key, char *opt_arg, struct argp_state *state)
         break;
     case 'e':
         if(1 != sscanf(opt_arg, "%d", &(arg->max_events))) {
-            orcerror("Job set to a non integer value.\n");
+            orcerror("Events set to a non integer value.\n");
             argp_usage(state);
         }
 
         if (1 > arg->max_events) {
-            orcerror("Job set to a 0 or a negative value.\n");
+            orcerror("Events set to a 0 or a negative value.\n");
             argp_usage(state);
         }
         break;
