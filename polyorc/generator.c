@@ -37,7 +37,7 @@ static urlring_item *ring;
 
 /* Global information, common to all connections */
 typedef struct _global_info {
-    pthread_t tid;
+    int id;
     struct ev_loop *loop;
     struct ev_timer timer_event;
     int still_running;
@@ -69,6 +69,13 @@ typedef struct _sock_info {
     global_info *global;
 } sock_info;
 
+/* Used for per thread contex data*/
+typedef struct _thread_context {
+    int id;
+    pthread_t pthread;
+    polyarguments *arg;
+} thread_context;
+
 /* Die if we get a bad CURLMcode somewhere */
 static void mcode_or_die(const char *where, CURLMcode code) {
     if (CURLM_OK != code) {
@@ -94,15 +101,6 @@ static void mcode_or_die(const char *where, CURLMcode code) {
 }
 
 static void new_conn(global_info *global);
-
-void fprintPt(FILE *f, pthread_t pt) {
-    unsigned char *ptc = (unsigned char*)(void*)(&pt);
-    fprintf(f, "0x");
-    size_t i;
-    for (i=0; i<sizeof(pt); i++) {
-        fprintf(f, "%02x", (unsigned)(ptc[i]));
-    }
-}
 
 /* Check for completed transfers, and remove their easy handles */
 static void check_multi_info(global_info *global) {
@@ -138,8 +136,7 @@ static void check_multi_info(global_info *global) {
                 //remove this block?
             }*/
             /* Create new readers here */
-            fprintPt(stdout, global->tid);
-            printf(" --> %s\n", conn->url);
+            printf("T%d --> %s\n", global->id, conn->url);
             new_conn(global);
             /* Cleanups after download */
             free(conn->memory);
@@ -346,14 +343,14 @@ static void new_conn(global_info *global) {
 }
 
 void *event_loop(void *ptr) {
-    polyarguments *arg = (polyarguments *)ptr;
+    thread_context *context = (thread_context *)ptr;
 
     global_info global;
     memset(&global, 0, sizeof(global_info));
 
-    global.tid = pthread_self();
+    global.id = context->id;
     global.current = ring;
-    global.job_max = arg->max_events;
+    global.job_max = context->arg->max_events;
     global.loop = ev_loop_new(0);
     global.multi = curl_multi_init();
     ev_timer_init(&(global.timer_event), socket_action_timer_cb, 0., 0.);
@@ -372,25 +369,23 @@ void *event_loop(void *ptr) {
 }
 
 void generator_loop(polyarguments *arg) {
-    pthread_t event_threads[arg->max_threads];
+    thread_context event_threads[arg->max_threads];
     int i;
     for (i = 0; i < arg->max_threads; i++) {
-        int status = pthread_create(&(event_threads[i]), 0, event_loop, (void *)&arg);
+        event_threads[i].id = i + 1;
+        event_threads[i].arg = arg;
+        int status = pthread_create(&(event_threads[i].pthread), 0, event_loop, (void *)&event_threads[i]);
         if (0 == status) {
-            orcstatus(orcm_normal, orc_green, "STARTED", "Thread ");
-            fprintPt(stdout, event_threads[i]);
-            printf("\n");
+            orcstatus(orcm_normal, orc_green, "STARTED", "Thread %d\n", event_threads[i].id);
         } else {
-            orcerror("Thread %d %s (%d)\n", i, strerror(status), status);
+            orcerror("Thread %d %s (%d)\n", event_threads[i].id, strerror(status), status);
             exit(status);
         }
     }
 
     for (i = 0; i < arg->max_threads; i++) {
-        pthread_join(event_threads[i], 0);
-        orcstatus(orcm_normal, orc_green, "STOPED", "Thread %d\n", i);
-        fprintPt(stdout, event_threads[i]);
-        printf("\n");
+        pthread_join(event_threads[i].pthread, 0);
+        orcstatus(orcm_normal, orc_green, "HALTED", "Thread %d\n", event_threads[i].id);
     }
 }
 

@@ -7,12 +7,21 @@ Spider:
 * Switch all strcpy and strlen to strn*
 
 Polyorc:
-
+* Go throug the documentation in the code
+* Check all callocs
+* Switch mallocs to callocs
+* Switch all strcpy and strlen to strn*
 * Implement "default loop" with admin socket.
-* Implement "new loop" for worker threads.
+* Add some randomness from where to start in the url ring
+* Statistics
+* Print better thread identity
 * Add argp documentation.
 * Add ncurses gui
 
 Polyorcboss:
-
+* Go throug the documentation in the code
+* Finish test case
+* Check all callocs
+* Switch mallocs to callocs
+* Switch all strcpy and strlen to strn*
 * Connect to Polyorc
