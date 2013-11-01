@@ -20,6 +20,6 @@
 
 #include "common.h"
 
-void controll_loop(polyarguments *arg);
+//void controll_loop(polyarguments *arg);
 
 #endif

@@ -18,6 +18,7 @@
 #include "generator.h"
 #include "polyorcout.h"
 #include "polyorcdefs.h"
+#include "polyorctypes.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -26,6 +27,9 @@
 #include <pthread.h>
 #include <ev.h>
 #include <curl/curl.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
 
 typedef struct _urlring_item {
@@ -44,7 +48,8 @@ typedef struct _global_info {
     CURLM *multi;
     int job_max;
     int job_count;
-    long total_bytes;
+    int stat_need_sync;
+    orcstatistics *stat;
     urlring_item *current;
 } global_info;
 
@@ -75,6 +80,18 @@ typedef struct _thread_context {
     pthread_t pthread;
     polyarguments *arg;
 } thread_context;
+
+/* If we use mmaped memory, sync it */
+void sync_mmap_ifused(global_info *global) {
+    if (1 == global->stat_need_sync) {
+        int res = msync(global->stat, sizeof(orcstatistics), MS_ASYNC);
+        if (-1 == res) {
+            orcerror("Sync of maped memory failed\n");
+            orcerrno(errno);
+            exit(EXIT_FAILURE);
+        }
+    }
+}
 
 /* Die if we get a bad CURLMcode somewhere */
 static void mcode_or_die(const char *where, CURLMcode code) {
@@ -277,6 +294,10 @@ static size_t write_cb(void *contents, size_t size, size_t nmemb, void *data) {
     conn->memory_size += realsize;
     conn->memory[conn->memory_size] = 0;
 
+    /* lets update the */
+    conn->global->stat->total_bytes += realsize;
+    sync_mmap_ifused(conn->global);
+
     return realsize;
 }
 
@@ -346,7 +367,46 @@ void *event_loop(void *ptr) {
     thread_context *context = (thread_context *)ptr;
 
     global_info global;
+    orcstatistics altstat;
+
     memset(&global, 0, sizeof(global_info));
+
+    global.stat = &altstat;
+    char path[PATH_MAX - 1];
+    if (0 != context->arg->stat_dir) {
+        int len = snprintf(path, PATH_MAX - 2, "/%s/%d.threadmem",
+                           context->arg->stat_dir, context->id);
+        if (-1 == len) {
+            orcerror("Name error for path %s", path);
+            orcerrno(errno);
+            exit(EXIT_FAILURE);
+        }
+        int fd = open(path, O_RDWR | O_CREAT);
+        if (-1 == fd) {
+            orcerror("File %s", path);
+            orcerrno(errno);
+            exit(EXIT_FAILURE);
+        }
+
+        /* make the file big enough for the mmaped memory */
+        ftruncate(fd, sizeof(orcstatistics));
+
+        global.stat = mmap(NULL, sizeof(orcstatistics), PROT_READ | PROT_WRITE,
+                           MAP_SHARED, fd, 0);
+        if (MAP_FAILED == global.stat) {
+            orcerror("Maping memory failed \n");
+            orcerrno(errno);
+            exit(EXIT_FAILURE);
+        }
+        fd = close(fd);
+        if (-1 == fd) {
+            orcerror("Close file %s", path);
+            orcerrno(errno);
+            exit(EXIT_FAILURE);
+        }
+        global.stat_need_sync = 1;
+    }
+    memset(global.stat, 0, sizeof(orcstatistics));
 
     global.id = context->id;
     global.current = ring;
@@ -374,18 +434,24 @@ void generator_loop(polyarguments *arg) {
     for (i = 0; i < arg->max_threads; i++) {
         event_threads[i].id = i + 1;
         event_threads[i].arg = arg;
-        int status = pthread_create(&(event_threads[i].pthread), 0, event_loop, (void *)&event_threads[i]);
+        int status = pthread_create(&(event_threads[i].pthread),
+                                    0,
+                                    event_loop,
+                                    (void *)&event_threads[i]);
         if (0 == status) {
-            orcstatus(orcm_normal, orc_green, "STARTED", "Thread %d\n", event_threads[i].id);
+            orcstatus(orcm_normal, orc_green, "STARTED", "Thread %d\n",
+                      event_threads[i].id);
         } else {
-            orcerror("Thread %d %s (%d)\n", event_threads[i].id, strerror(status), status);
+            orcerror("Thread %d %s (%d)\n", event_threads[i].id,
+                     strerror(status), status);
             exit(status);
         }
     }
 
     for (i = 0; i < arg->max_threads; i++) {
         pthread_join(event_threads[i].pthread, 0);
-        orcstatus(orcm_normal, orc_green, "HALTED", "Thread %d\n", event_threads[i].id);
+        orcstatus(orcm_normal, orc_green, "HALTED", "Thread %d\n",
+                  event_threads[i].id);
     }
 }
 
@@ -425,7 +491,7 @@ void create_url_ring(const char* file_name) {
             buff_len = 0;
         }
     }
-    if (0 < errno) {
+    if (-1 == status && 0 < errno) {
         orcerror("%s (%d)\n", strerror(errno), errno);
     }
     if (0 == tail) {

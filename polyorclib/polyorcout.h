@@ -58,6 +58,8 @@ void init_polyorcout(enum polyorc_verbosity, enum polyorc_color);
 
 void orcerror(const char* format, ...);
 
+void orcerrno(int);
+
 enum polyorc_verbosity get_verbosity();
 
 enum polyorc_color get_color();

@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/stat.h>
 
 #include <argp.h>
 
@@ -63,15 +64,10 @@ static struct argp_option options[] = {
     {"events",       'e', "INT",   0, "Max parallell downloads (default " \
                                       DEFAULT_MAX_EVENTS_STR ")" },
     {"out",          'o', "FILE",  0, "Output file (default " DEFAULT_OUT ")"},
-    {"exclude",     1001, "REGEX", 0, "Exclude pattern" },
     {"jobs",         'j', "JOBS",  0, "The number of threads to use" \
                                       " (default " DEFAULT_MAX_JOBS_STR ")" },
-    {"admin-port",   'a', "PORT",  0, "The admin port (default " \
-                                      ORC_DEFAULT_ADMIN_PORT_STR  ")"},
-    {"admin-ip",     'i', "IP",    0, "Bind admin port to spesifc ip"},
-    {"ipv4",         '4', 0,       0, "Use ipv 4 for admin socket (default)"},
-    {"ipv6",         '6', 0,       0, "Use ipv 6 for admin socket"},
-    {"file",         'f', "FILE",  0, "Bind admin port to spesifc ip"},
+    {"file",         'f', "FILE",  0, "A file with one url per line"},
+    {"stat-dir",     's', "DIR",   0, "A directory for stat files"},
     { 0 }
 };
 
@@ -118,21 +114,6 @@ static error_t parse_opt(int key, char *opt_arg, struct argp_state *state)
         check_color(state,arg, orcc_use_color);
         arg->color = orcc_use_color;
         break;
-    case 'a':
-        if(1 != sscanf(opt_arg, "%d", &(arg->adminport))) {
-            fprintf(stderr, "Admin port set to a non integer value.\n");
-            argp_usage(state);
-        }
-        if (arg->adminport < 1 ||
-            arg->adminport > (intpow(2, 16) - 1))
-        {
-            fprintf(stderr,
-                    "Admin port set to a value outside range %d to %d.\n",
-                    1,
-                    (intpow(2,16) - 1));
-            argp_usage(state);
-        }
-        break;
     case 'n':
         check_color(state,arg, orcc_no_color);
         arg->color = orcc_no_color;
@@ -147,21 +128,6 @@ static error_t parse_opt(int key, char *opt_arg, struct argp_state *state)
             orcerror("Events set to a 0 or a negative value.\n");
             argp_usage(state);
         }
-        break;
-    case 1001:
-        arg->excludes_len++;
-        size_t size = arg->excludes_len * sizeof(*(arg->excludes));
-        char **tmp;
-        tmp = realloc(arg->excludes, size);
-        if (0 == tmp) {
-            if (0 != arg->excludes) {
-                free(arg->excludes);
-            }
-            orcerror("%s (%d)\n", strerror(errno), errno);
-            exit(EXIT_FAILURE);
-        }
-        tmp[arg->excludes_len - 1] = opt_arg;
-        arg->excludes = tmp;
         break;
     case 'j':
         if(1 != sscanf(opt_arg, "%d", &(arg->max_threads))) {
@@ -179,14 +145,8 @@ static error_t parse_opt(int key, char *opt_arg, struct argp_state *state)
     case 'f':
         arg->in_file = opt_arg;
         break;
-    case 'i':
-        arg->adminip = opt_arg;
-        break;
-    case '4':
-        arg->ipv = 4;
-        break;
-    case '6':
-        arg->ipv = 6;
+    case 's':
+        arg->stat_dir = opt_arg;
         break;
     case ARGP_KEY_ARG:
     case ARGP_KEY_END:
@@ -209,9 +169,29 @@ static error_t parse_opt(int key, char *opt_arg, struct argp_state *state)
 /* Our argp parser. */
 static struct argp argp = { options, parse_opt, args_doc, doc };
 
+void create_dir_if_needed(const char *dirpath) {
+    struct stat s;
+    int err = stat(dirpath, &s);
+    if(-1 == err) {
+        if(ENOENT == errno) {
+            if (-1 == mkdir(dirpath, S_IRUSR | S_IWRITE | S_IXUSR)) {
+                orcerror("Could not create directory %s\n", dirpath);
+                orcerrno(errno);
+            }
+        } else {
+            orcerror("Could not stat directory %s\n", dirpath);
+            orcerrno(errno);
+            exit(1);
+        }
+        orcstatus(orcm_normal, orc_green, "CREATED", "Directory %s\n",
+                      dirpath);
+    }
+}
+
 int main(int argc, char *argv[])
 {
     polyarguments arg;
+    memset(&arg, 0, sizeof(polyarguments));
 
     /* Default values. */
     arg.verbosity = orcm_not_set;
@@ -221,11 +201,6 @@ int main(int argc, char *argv[])
     arg.url = 0;
     arg.out_file = DEFAULT_OUT;
     arg.in_file = 0;
-    arg.excludes = 0;
-    arg.excludes_len = 0;
-    arg.ipv = 4;
-    arg.adminip = 0;
-    arg.adminport = ORC_DEFAULT_ADMIN_PORT;
 
     /* Parse our arguments; every option seen by parse_opt will
        be reflected in arguments. */
@@ -242,11 +217,15 @@ int main(int argc, char *argv[])
     init_polyorcout(arg.verbosity, arg.color);
 
     print_splash();
+
+    umask(0);
+    if (arg.stat_dir != 0) {
+        create_dir_if_needed(arg.stat_dir);
+    }
+
     //controll_loop(&arg);
     generator_init(&arg);
     generator_loop(&arg);
-
-    free(arg.excludes);
 
     orcout(orcm_quiet, "Done!\n");
     return EXIT_SUCCESS;

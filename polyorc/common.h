@@ -30,11 +30,7 @@ typedef struct _polyarguments {
     const char *url;
     const char *out_file;
     const char *in_file;
-    char **excludes;
-    int excludes_len;
-    int ipv;
-    const char *adminip;
-    int adminport;
+    const char *stat_dir;
 } polyarguments;
 
 #define ORC_USERAGENT ORC_NAME"/"ORC_VERSION

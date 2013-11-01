@@ -173,6 +173,7 @@ static struct argp argp = { options, parse_opt, args_doc, doc };
 int main(int argc, char *argv[])
 {
     arguments arg;
+    memset(&arg, 0, sizeof(arguments));
 
     /* Default values. */
     arg.verbosity = orcm_not_set;

@@ -18,6 +18,9 @@
 #ifndef POLYORCTYPES_H
 #define POLYORCTYPES_H
 
-char *conv();
+typedef struct _orcstatistics {
+    int thread_no;
+    long total_bytes;
+} orcstatistics;
 
 #endif

@@ -19,6 +19,7 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+#include <string.h>
 
 #define RESETCOLOR "\033[0m"
 #define SELECTCOLOR "\033[%dm\033[%dm"
@@ -75,6 +76,10 @@ void orcerror(const char *format, ...) {
     va_start(argptr, format);
     vprintf(format, argptr);
     va_end(argptr);
+}
+
+void orcerrno(int err) {
+    orcerror("%s (%d)\n", strerror(err), err);
 }
 
 /**
