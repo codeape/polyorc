@@ -22,14 +22,6 @@
 #include "polyorcutils.h"
 #include "client.h"
 
-#define STR_HELPER(x) #x
-#define STR(x) STR_HELPER(x)
-
-#define ORC_DEFAULT_ADMIN_PORT 7711
-#define ORC_DEFAULT_ADMIN_PORT_STR STR(ORC_DEFAULT_ADMIN_PORT)
-
-#define ORC_DEFAULT_ADMIN_IP "127.0.0.1"
-
 const char *argp_program_version = ORC_VERSION;
 const char *argp_program_bug_address = ORC_BUG_ADDRESS;
 
@@ -47,12 +39,7 @@ static struct argp_option options[] = {
     {"debug",        'd', 0,       0, "Produce debug and verbose output" },
     {"color",        'c', 0,       0, "Color output" },
     {"no-color",     'n', 0,       0, "No color output" },
-    {"admin-port",   'a', "PORT",  0, "The admin port (default " \
-                                      ORC_DEFAULT_ADMIN_PORT_STR  ")"},
-    {"admin-ip",     'i', "IP",    0, "Admin ip (default " \
-                                      ORC_DEFAULT_ADMIN_IP ")"},
-    {"ipv4",         '4', 0,       0, "Use ipv 4 for admin socket (default)"},
-    {"ipv6",         '6', 0,       0, "Use ipv 6 for admin socket"},
+    {"stat-dir",     's', "DIR",   0, "A directory for reading stat files"},
     { 0 }
 };
 
@@ -99,33 +86,12 @@ static error_t parse_opt(int key, char *opt_arg, struct argp_state *state)
         check_color(state,arg, orcc_use_color);
         arg->color = orcc_use_color;
         break;
-    case 'a':
-        if(1 != sscanf(opt_arg, "%d", &(arg->adminport))) {
-            fprintf(stderr, "Admin port set to a non integer value.\n");
-            argp_usage(state);
-        }
-        if (arg->adminport < 1 ||
-            arg->adminport > (intpow(2, 16) - 1))
-        {
-            fprintf(stderr,
-                    "Admin port set to a value outside range %d to %d.\n",
-                    1,
-                    (intpow(2,16) - 1));
-            argp_usage(state);
-        }
-        break;
     case 'n':
         check_color(state,arg, orcc_no_color);
         arg->color = orcc_no_color;
         break;
-    case 'i':
-        arg->adminip = opt_arg;
-        break;
-    case '4':
-        arg->ipv = 4;
-        break;
-    case '6':
-        arg->ipv = 6;
+    case 's':
+        arg->stat_dir = opt_arg;
         break;
     case ARGP_KEY_ARG:
     case ARGP_KEY_END:
@@ -150,10 +116,7 @@ int main(int argc, char *argv[])
     /* Default values. */
     arg.verbosity = orcm_not_set;
     arg.color = orcc_not_set;
-    arg.url = 0;
-    arg.ipv = 4;
-    arg.adminip = ORC_DEFAULT_ADMIN_IP;
-    arg.adminport = ORC_DEFAULT_ADMIN_PORT;
+    arg.stat_dir = 0;
 
     /* Parse our arguments; every option seen by parse_opt will
        be reflected in arguments. */

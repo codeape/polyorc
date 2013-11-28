@@ -31,7 +31,6 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-
 typedef struct _urlring_item {
     struct _urlring_item *next;
     char *url;
@@ -374,14 +373,14 @@ void *event_loop(void *ptr) {
     global.stat = &altstat;
     char path[PATH_MAX - 1];
     if (0 != context->arg->stat_dir) {
-        int len = snprintf(path, PATH_MAX - 2, "/%s/%d.threadmem",
+        int len = snprintf(path, PATH_MAX - 2, "%s/%d.threadmem",
                            context->arg->stat_dir, context->id);
         if (-1 == len) {
             orcerror("Name error for path %s", path);
             orcerrno(errno);
             exit(EXIT_FAILURE);
         }
-        int fd = open(path, O_RDWR | O_CREAT);
+        int fd = open(path, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IXUSR);
         if (-1 == fd) {
             orcerror("File %s", path);
             orcerrno(errno);
@@ -407,6 +406,7 @@ void *event_loop(void *ptr) {
         global.stat_need_sync = 1;
     }
     memset(global.stat, 0, sizeof(orcstatistics));
+    global.stat->thread_no = context->id;
 
     global.id = context->id;
     global.current = ring;

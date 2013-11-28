@@ -67,7 +67,7 @@ static struct argp_option options[] = {
     {"jobs",         'j', "JOBS",  0, "The number of threads to use" \
                                       " (default " DEFAULT_MAX_JOBS_STR ")" },
     {"file",         'f', "FILE",  0, "A file with one url per line"},
-    {"stat-dir",     's', "DIR",   0, "A directory for stat files"},
+    {"stat-dir",     's', "DIR",   0, "A directory for writing stat files"},
     { 0 }
 };
 

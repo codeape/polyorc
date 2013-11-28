@@ -25,10 +25,7 @@
 typedef struct _bossarguments {
     enum polyorc_verbosity verbosity;
     enum polyorc_color color;
-    const char *url;
-    int ipv;
-    const char *adminip;
-    int adminport;
+    const char *stat_dir;
 } bossarguments;
 
 #endif

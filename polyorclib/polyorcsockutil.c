@@ -42,7 +42,7 @@ void init_socket(const int ipv, orc_socket_info *srv) {
         srv->addr_size = sizeof(struct sockaddr_in);
     } else if (6 == ipv) {
         srv->ipv = 6;
-        srv->addr_size = srv->addr_size = sizeof(struct sockaddr_in6);
+        srv->addr_size = sizeof(struct sockaddr_in6);
     }
 }
 
@@ -100,12 +100,10 @@ int create_socket(const char *ip, const int port, orc_socket_info *srv,
             int ok = inet_pton(AF_INET6, ip, &(srv->addr.addr6.sin6_addr));
             if (0 == ok) {
                 orcerror("Socket address error for %s\n", ip);
-                free(socket);
                 return -1;
             } else if (0 > ok) {
                 orcerror("Socket address error %s (%d)\n", strerror(errno),
                          errno);
-                free(socket);
                 return -1;
             }
             orcoutcl(orc_reset, orc_blue, "Socket ip %s", ip);
