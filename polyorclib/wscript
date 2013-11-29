@@ -2,7 +2,6 @@
 def configure(ctx):
     print("polyorclib configure")
     ctx.standard_defs()
-    ctx.libckok('json-c', 'json/json.h')
     ctx.libckok('uriparser', 'uriparser/Uri.h')
     ctx.write_config_header('config.h')
 
@@ -14,8 +13,7 @@ def build(ctx):
         source          = ['polyorcutils.c',
                            'polyorcmatcher.c',
                            'polyorcbintree.c',
-                           'polyorcout.c',
-                           'polyorcsockutil.c'],
+                           'polyorcout.c'],
         cflags          = [ '-Wall', '-g' ],
         name            = "intern_polyorclib"
     )

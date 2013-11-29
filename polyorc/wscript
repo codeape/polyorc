@@ -15,7 +15,8 @@ def build(ctx):
     elif ("DARWIN" == ctx.env.DEST_OS.upper()):
         libs = ['curl', 'ev', 'argp']
     ctx.program(
-        source      = 'main.c controll.c generator.c',
+        source      = ['main.c',
+                       'generator.c'],
         target      = 'polyorc',
         includes    = '.',
         lib         = libs,

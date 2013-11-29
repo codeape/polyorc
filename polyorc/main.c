@@ -27,7 +27,6 @@
 #include "common.h"
 #include "polyorcout.h"
 #include "polyorcutils.h"
-#include "controll.h"
 #include "generator.h"
 
 #define STR_HELPER(x) #x

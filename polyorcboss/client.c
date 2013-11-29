@@ -30,7 +30,6 @@
 
 #include "common.h"
 #include "client.h"
-#include "polyorcsockutil.h"
 #include "polyorctypes.h"
 
 typedef struct _mmapfile {
