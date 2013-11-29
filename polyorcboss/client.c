@@ -26,14 +26,12 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/time.h>
-//#include <limits.h> // MAX_INPUT
+#include <limits.h>
 
 #include "common.h"
 #include "client.h"
 #include "polyorcsockutil.h"
 #include "polyorctypes.h"
-
-//static char line_buffer[MAX_INPUT];
 
 typedef struct _mmapfile {
     int fd;
@@ -65,7 +63,7 @@ void openfiles(const char* dir_path) {
                 continue;
             }
             mmapfile *file = calloc(1, sizeof(mmapfile));
-            char path[PATH_MAX - 1];//static int line_index;
+            char path[PATH_MAX - 1];
             int len = snprintf(path, PATH_MAX - 2, "%s/%s",
                                dir_path, file_name);
             if (-1 == len) {
