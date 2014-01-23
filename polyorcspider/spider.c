@@ -423,7 +423,7 @@ static void new_conn(char *url, global_info *global) {
     curl_easy_setopt(conn->easy, CURLOPT_NOPROGRESS, 0L);
     curl_easy_setopt(conn->easy, CURLOPT_PROGRESSFUNCTION, prog_cb);
     curl_easy_setopt(conn->easy, CURLOPT_PROGRESSDATA, conn);
-    curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_TIME, 3L);
+    curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_TIME, 10L);
     curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_LIMIT, 10L);
     curl_easy_setopt(conn->easy, CURLOPT_USERAGENT, ORC_USERAGENT);
     curl_easy_setopt(conn->easy, CURLOPT_FOLLOWLOCATION, 1);
@@ -456,7 +456,8 @@ void print_stats(global_info *global, struct timeval *start,
     }
 
     orcoutc(orc_reset, orc_red, "Downloaded:     ");
-    orcout(orcm_quiet, "%d bytes\n", global->total_bytes);
+    orcout(orcm_quiet, "%.2Lf %s\n", byte_to_human_size(global->total_bytes),
+                 byte_to_human_suffix(global->total_bytes));
 
 
     orcoutc(orc_reset, orc_red, "Time:           ");
