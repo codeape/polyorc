@@ -45,6 +45,8 @@
 
 typedef struct _mmapfile {
     int fd;
+    int working;
+    int working_check;
     unsigned long long history_total_bytes;
     orcstatistics *stat;
     struct _mmapfile *next;
@@ -147,37 +149,56 @@ void display_data() {
 
     int row = 2;
     mmapfile *ptr = files;
+    clear();
     display_header();
     if (ptr == 0) {
         mvprintw(row, 0, "No threads found!");
         return;
     }
     unsigned long long sum = 0;
+    unsigned long long sum_bsec = 0;
     while (0 != ptr) {
         mvprintw(row, 0, "Thread %d", ptr->stat->thread_no);
-        if (ptr->stat->total_bytes != ptr->history_total_bytes) {
+
+        ptr->working_check++;
+        if (ptr->working_check % 10 == 0) {
+            if (ptr->stat->total_bytes > ptr->history_total_bytes) {
+                ptr->working = 1;
+                ptr->history_total_bytes = ptr->stat->total_bytes;
+            } else {
+                ptr->working = 0;
+            }
+        }
+
+        if (1 == ptr->working) {
             attron(COLOR_PAIR(GREEN_ON_BLACK));
-            mvprintw(row, 10, " work ", ptr->stat->thread_no);
+            mvprintw(row, 10, "work");
             attroff(COLOR_PAIR(GREEN_ON_BLACK));
         } else {
             attron(COLOR_PAIR(RED_ON_BLACK));
-            mvprintw(row, 10, " idle ", ptr->stat->thread_no);
+            mvprintw(row, 10, "idle");
             attroff(COLOR_PAIR(RED_ON_BLACK));
         }
 
-        mvprintw(row, 15, " %.2Lf %s ",
+        mvprintw(row, 16, "%.2Lf %s",
                  byte_to_human_size(ptr->stat->total_bytes),
                  byte_to_human_suffix(ptr->stat->total_bytes));
 
-        ptr->history_total_bytes = ptr->stat->total_bytes;
+        mvprintw(row, 27, "%.2Lf %s/s",
+                 byte_to_human_size(ptr->stat->bytes_sec),
+                 byte_to_human_suffix(ptr->stat->bytes_sec));
+
         sum += ptr->stat->total_bytes;
+        sum_bsec += ptr->stat->bytes_sec;
 
         ptr = ptr->next;
         row++;
     }
     mvprintw(height - 1, 0, "Sum");
-    mvprintw(height - 1, 15, " %.2Lf %s ", byte_to_human_size(sum),
+    mvprintw(height - 1, 16, "%.2Lf %s", byte_to_human_size(sum),
              byte_to_human_suffix(sum));
+    mvprintw(height - 1, 27, "%.2Lf %s/s", byte_to_human_size(sum_bsec),
+             byte_to_human_suffix(sum_bsec));
 }
 
 static void finish(int sig)
@@ -230,8 +251,7 @@ void client_loop(bossarguments *arg) {
             ( 300000 < nowtime.tv_usec - lasttime.tv_usec))
         {
             display_data();
-            gettimeofday(&nowtime, 0);
-
+            gettimeofday(&lasttime, 0);
         }
 
         int ch = getch();

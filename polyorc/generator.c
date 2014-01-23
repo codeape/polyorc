@@ -48,6 +48,8 @@ typedef struct _global_info {
     int job_max;
     int job_count;
     int stat_need_sync;
+    struct timeval read_time;
+    int read_byte_memory;
     orcstatistics *stat;
     urlring_item *current;
 } global_info;
@@ -152,7 +154,7 @@ static void check_multi_info(global_info *global) {
                 //remove this block?
             }*/
             /* Create new readers here */
-            printf("T%d --> %s\n", global->id, conn->url);
+            orcout(orcm_debug, "T%d --> %s\n", global->id, conn->url);
             new_conn(global);
             /* Cleanups after download */
             free(conn->memory);
@@ -295,7 +297,29 @@ static size_t write_cb(void *contents, size_t size, size_t nmemb, void *data) {
 
     /* lets update the */
     conn->global->stat->total_bytes += realsize;
-    sync_mmap_ifused(conn->global);
+    conn->global->read_byte_memory += realsize;
+
+    struct timeval readt;
+    readt.tv_sec = conn->global->read_time.tv_sec;
+    readt.tv_usec = conn->global->read_time.tv_usec;
+    struct timeval now;
+    gettimeofday(&now, 0);
+    if ((now.tv_sec - readt.tv_sec) >= 2) {
+        long sec = now.tv_sec - readt.tv_sec;
+        long usec = now.tv_usec - readt.tv_usec;
+        if (usec < 0) {
+            sec--;
+            usec = 1000000 - (readt.tv_usec - now.tv_usec);
+        }
+        double timediff = (double)sec + ((double)usec / 1000000.0);
+
+        conn->global->stat->bytes_sec =
+            conn->global->read_byte_memory / timediff;
+        conn->global->read_byte_memory = 0;
+        printf("%f %d\n", timediff, conn->global->stat->bytes_sec);
+        gettimeofday(&(conn->global->read_time), 0);
+        sync_mmap_ifused(conn->global);
+    }
 
     return realsize;
 }
@@ -420,6 +444,7 @@ void *event_loop(void *ptr) {
     curl_multi_setopt(global.multi, CURLMOPT_SOCKETFUNCTION, sock_cb);
     curl_multi_setopt(global.multi, CURLMOPT_SOCKETDATA, &global);
 
+    gettimeofday(&(global.read_time), 0);
     new_conn(&global);
     ev_loop(global.loop, 0);
 
