@@ -27,6 +27,8 @@
 static enum polyorc_verbosity orc_verbosity = orcm_normal;
 static enum polyorc_color orc_color = orcc_no_color;
 
+static const char *suffix[] = {"kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"};
+
 /**
  * Sets the output verbosity level and if there will be colored
  * output.
@@ -204,3 +206,22 @@ void print_splash() {
     orcoutcl(orc_reset, orc_red,
         "...................................................................");
 }
+
+long double byte_to_human_size(unsigned long long abytes) {
+    long double mem = abytes;
+    do {
+        mem = mem / 1024.0;
+    } while (mem > 1024.0);
+    return mem;
+}
+
+const char * byte_to_human_suffix(unsigned long long abytes) {
+    long double mem = abytes;
+    int i = -1;
+    do {
+        i++;
+        mem = mem / 1024.0;
+    } while (mem > 1024.0);
+    return suffix[i];
+}
+

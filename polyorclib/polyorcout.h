@@ -76,4 +76,8 @@ void orcstatus(enum polyorc_verbosity, enum polyorc_color_val, const char *,
 
 void print_splash();
 
+long double byte_to_human_size(unsigned long long abytes);
+
+const char * byte_to_human_suffix(unsigned long long abytes);
+
 #endif

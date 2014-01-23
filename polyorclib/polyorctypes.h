@@ -20,7 +20,7 @@
 
 typedef struct _orcstatistics {
     int thread_no;
-    long total_bytes;
+    unsigned long long total_bytes;
 } orcstatistics;
 
 #endif

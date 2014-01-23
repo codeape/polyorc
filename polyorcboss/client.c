@@ -27,13 +27,25 @@
 #include <sys/mman.h>
 #include <sys/time.h>
 #include <limits.h>
+#include <sys/ioctl.h>
+#include <time.h>
+
 
 #include "common.h"
 #include "client.h"
 #include "polyorctypes.h"
 
+#define RED_ON_BLACK 1
+#define GREEN_ON_BLACK 2
+#define YELLOW_ON_BLACK 3
+#define BLUE_ON_BLACK 4
+#define MAGENTA_ON_BLACK 5
+#define CYAN_ON_BLACK 6
+#define WHITE_ON_BLACK 7
+
 typedef struct _mmapfile {
     int fd;
+    unsigned long long history_total_bytes;
     orcstatistics *stat;
     struct _mmapfile *next;
 } mmapfile;
@@ -121,19 +133,51 @@ void openfiles(const char* dir_path) {
     }
 }
 
+void display_header() {
+    attron(COLOR_PAIR(GREEN_ON_BLACK));
+    mvprintw(0, 0, "Polyorc Boss");
+    attroff(COLOR_PAIR(GREEN_ON_BLACK));
+}
+
 void display_data() {
-    int row = 1;
+    struct winsize w;
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+    int height = w.ws_row;
+    //int width = w.ws_col;
+
+    int row = 2;
     mmapfile *ptr = files;
+    display_header();
     if (ptr == 0) {
-        mvprintw(row, 0, "No threads found!\n");
+        mvprintw(row, 0, "No threads found!");
         return;
     }
+    unsigned long long sum = 0;
     while (0 != ptr) {
-        mvprintw(row, 0, "Thread %d Bytes: %d\n", ptr->stat->thread_no,
-                 ptr->stat->total_bytes);
+        mvprintw(row, 0, "Thread %d", ptr->stat->thread_no);
+        if (ptr->stat->total_bytes != ptr->history_total_bytes) {
+            attron(COLOR_PAIR(GREEN_ON_BLACK));
+            mvprintw(row, 10, " work ", ptr->stat->thread_no);
+            attroff(COLOR_PAIR(GREEN_ON_BLACK));
+        } else {
+            attron(COLOR_PAIR(RED_ON_BLACK));
+            mvprintw(row, 10, " idle ", ptr->stat->thread_no);
+            attroff(COLOR_PAIR(RED_ON_BLACK));
+        }
+
+        mvprintw(row, 15, " %.2Lf %s ",
+                 byte_to_human_size(ptr->stat->total_bytes),
+                 byte_to_human_suffix(ptr->stat->total_bytes));
+
+        ptr->history_total_bytes = ptr->stat->total_bytes;
+        sum += ptr->stat->total_bytes;
+
         ptr = ptr->next;
         row++;
     }
+    mvprintw(height - 1, 0, "Sum");
+    mvprintw(height - 1, 15, " %.2Lf %s ", byte_to_human_size(sum),
+             byte_to_human_suffix(sum));
 }
 
 static void finish(int sig)
@@ -155,6 +199,17 @@ void init_curses() {
     notimeout(stdscr, TRUE);
     noecho();
     nodelay(stdscr, TRUE);
+
+    if(has_colors() == TRUE) {
+        start_color();
+        init_pair(RED_ON_BLACK, COLOR_RED, COLOR_BLACK);
+        init_pair(GREEN_ON_BLACK, COLOR_GREEN, COLOR_BLACK);
+        init_pair(YELLOW_ON_BLACK, COLOR_YELLOW, COLOR_BLACK);
+        init_pair(BLUE_ON_BLACK, COLOR_BLUE, COLOR_BLACK);
+        init_pair(MAGENTA_ON_BLACK, COLOR_MAGENTA, COLOR_BLACK);
+        init_pair(CYAN_ON_BLACK, COLOR_CYAN, COLOR_BLACK);
+        init_pair(WHITE_ON_BLACK, COLOR_WHITE, COLOR_BLACK);
+    }
 }
 
 void client_loop(bossarguments *arg) {
@@ -164,6 +219,10 @@ void client_loop(bossarguments *arg) {
     int run = 1;
     struct timeval lasttime;
     struct timeval nowtime;
+    struct timespec sleep_spec;
+    sleep_spec.tv_sec = 0;
+    sleep_spec.tv_nsec = 300000000L;
+
     gettimeofday(&lasttime, 0);
     while (1 == run) {
         gettimeofday(&nowtime, 0);
@@ -172,11 +231,13 @@ void client_loop(bossarguments *arg) {
         {
             display_data();
             gettimeofday(&nowtime, 0);
+
         }
 
         int ch = getch();
         if ('q' == ch) {
             finish(0);
         }
+        nanosleep(&sleep_spec, 0);
     }
 }
