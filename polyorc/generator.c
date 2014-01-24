@@ -318,7 +318,7 @@ static size_t write_cb(void *contents, size_t size, size_t nmemb, void *data) {
         conn->global->read_byte_memory = 0;
         printf("%f %d\n", timediff, conn->global->stat->bytes_sec);
         gettimeofday(&(conn->global->read_time), 0);
-        sync_mmap_ifused(conn->global);
+        //sync_mmap_ifused(conn->global);
     }
 
     return realsize;
