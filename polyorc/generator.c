@@ -31,12 +31,9 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-typedef struct _urlring_item {
-    struct _urlring_item *next;
-    char *url;
-} urlring_item;
-
-static urlring_item *ring;
+// No lock needed. We only read this.
+static unsigned int ring_size;
+static char **ring;
 
 // No lock needed. We only indicate if run or not.
 static int done;
@@ -54,7 +51,7 @@ typedef struct _global_info {
     struct timeval read_time;
     int read_byte_memory;
     orcstatistics *stat;
-    urlring_item *current;
+    int current;
 } global_info;
 
 /* Information associated with a specific easy handle */
@@ -365,8 +362,11 @@ static void new_conn(global_info *global) {
     conn->memory_size = 0;
 
     conn->global = global;
-    conn->url = global->current->url;
-    global->current = global->current->next;
+    conn->url = ring[global->current];
+    global->current++;
+    if (ring_size == global->current) {
+        global->current = 0;
+    }
     curl_easy_setopt(conn->easy, CURLOPT_URL, conn->url);
     curl_easy_setopt(conn->easy, CURLOPT_WRITEFUNCTION, write_cb);
     curl_easy_setopt(conn->easy, CURLOPT_WRITEDATA, conn);
@@ -437,8 +437,10 @@ void * event_loop(void *ptr) {
     memset(global.stat, 0, sizeof(orcstatistics));
     global.stat->thread_no = context->id;
 
+    // Let us start at a random place in the ring
+    global.current = random()%ring_size;
+
     global.id = context->id;
-    global.current = ring;
     global.job_max = context->arg->max_events;
     global.loop = ev_loop_new(0);
     global.multi = curl_multi_init();
@@ -496,6 +498,7 @@ void generator_loop(polyarguments *arg) {
 }
 
 void create_url_ring(const char* file_name) {
+    ring_size = 0;
     ring = 0;
     char *buff = 0;
     size_t buff_len = 0;
@@ -506,8 +509,29 @@ void create_url_ring(const char* file_name) {
         orcerror("%s (%d)\n", strerror(errno), errno);
     }
 
-    urlring_item *tail = 0;
+    int i = 0;
     while (0 < (status = getline(&buff, &buff_len, url_file))) {
+        i++;
+    }
+    if (-1 == status && 0 < errno) {
+        orcerror("%s (%d)\n", strerror(errno), errno);
+    }
+    if (0 == i) {
+        orcout(orcm_quiet, "No urls to process!\n");
+        exit(0);
+    }
+
+    const int lines = i;
+    ring_size = i;
+    ring = calloc(i, sizeof(char*));
+    if (0 == ring) {
+        orcerror("%s (%d)\n", strerror(errno), errno);
+        exit(EXIT_FAILURE);
+    }
+
+    rewind(url_file);
+    i = 0;
+    while (i < lines && 0 < (status = getline(&buff, &buff_len, url_file))) {
         int index = buff_len - 1;
         while (index >= 0) {
             if(buff[index] == '\n') {
@@ -516,32 +540,22 @@ void create_url_ring(const char* file_name) {
             }
             index--;
         }
-        if (buff[index] == '\0') {
-            urlring_item *tmp = calloc(1, sizeof(urlring_item));
-            tmp->url = buff;
-            if (tail == 0) {
-                ring = tmp;
-                tail = tmp;
-            } else {
-                tail->next = tmp;
-                tail = tail->next;
-            }
-            printf("%s\n", buff);
-            buff = 0;
-            buff_len = 0;
-        }
+        ring[i] = buff;
+        buff = 0;
+        i++;
     }
     if (-1 == status && 0 < errno) {
         orcerror("%s (%d)\n", strerror(errno), errno);
     }
-    if (0 == tail) {
-        orcout(orcm_quiet, "No urls to process!\n");
-        exit(0);
-    }
-    tail->next = ring;
 }
 
 void generator_init(polyarguments *arg) {
     create_url_ring(arg->in_file);
+}
+
+void generator_destroy(){
+    if (0 != ring) {
+        free(ring);
+    }
 }
 

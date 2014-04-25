@@ -225,6 +225,7 @@ int main(int argc, char *argv[])
     //controll_loop(&arg);
     generator_init(&arg);
     generator_loop(&arg);
+    generator_destroy();
 
     orcout(orcm_quiet, "Done!\n");
     return EXIT_SUCCESS;

@@ -21,6 +21,7 @@
 #include <common.h>
 
 void generator_init(polyarguments *arg);
+void generator_destroy();
 void generator_loop(polyarguments *arg);
 
 #endif
