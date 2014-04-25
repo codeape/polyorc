@@ -38,6 +38,9 @@ typedef struct _urlring_item {
 
 static urlring_item *ring;
 
+// No lock needed. We only indicate if run or not.
+static int done;
+
 /* Global information, common to all connections */
 typedef struct _global_info {
     int id;
@@ -154,8 +157,10 @@ static void check_multi_info(global_info *global) {
                 //remove this block?
             }*/
             /* Create new readers here */
-            orcout(orcm_debug, "T%d --> %s\n", global->id, conn->url);
-            new_conn(global);
+            if (0 == done) {
+                orcout(orcm_debug, "T%d --> %s\n", global->id, conn->url);
+                new_conn(global);
+            }
             /* Cleanups after download */
             free(conn->memory);
             free(conn);
@@ -334,7 +339,7 @@ static int prog_cb(void *data, double dltotal, double dlnow, double ult,
     if (dlnow > 0 && dltotal > 0) {
         orcout(orcm_debug, "Progress: %s (%g/%g)\n", conn->url, dlnow, dltotal);
     }
-    return 0;
+    return done;
 }
 
 /* Create a new easy handle, and add it to the global curl_multi */
@@ -386,7 +391,7 @@ static void new_conn(global_info *global) {
        that the necessary socket_action() call will be called by this app */
 }
 
-void *event_loop(void *ptr) {
+void * event_loop(void *ptr) {
     thread_context *context = (thread_context *)ptr;
 
     global_info global;
@@ -453,7 +458,17 @@ void *event_loop(void *ptr) {
     return 0;
 }
 
+static void finish(int sig)
+{
+    done = 1;
+    orcoutc(orc_reset, orc_red, "\nCtrl+c detected!\n");
+}
+
 void generator_loop(polyarguments *arg) {
+    // Add Ctrl+c handling
+    done = 0;
+    signal(SIGINT, finish);
+
     thread_context event_threads[arg->max_threads];
     int i;
     for (i = 0; i < arg->max_threads; i++) {
