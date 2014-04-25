@@ -400,7 +400,6 @@ static void new_conn(char *url, global_info *global) {
     }
 
     conn = calloc(1, sizeof(conn_info));
-    memset(conn, 0, sizeof(conn_info));
 
     conn->error[0] = '\0';
     conn->easy = curl_easy_init();
