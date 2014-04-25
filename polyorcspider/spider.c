@@ -35,6 +35,8 @@
 #include <ev.h>
 #include <sys/time.h>
 
+static int done;
+
 /* A url fifo node*/
 typedef struct _url_node {
    char *url;
@@ -222,7 +224,7 @@ static void check_multi_info(global_info *global) {
                 analyze_page(global, conn);
                 /* Collect stats */
                 global->total_bytes += conn->memory_size;
-            } else {
+            } else if(0 == done){
                 /* Mark as dead */
                 url_info *info = 0;
                 if (0 != (info = (url_info *)
@@ -387,7 +389,7 @@ static int prog_cb(void *data, double dltotal, double dlnow, double ult,
     if (dlnow > 0 && dltotal > 0) {
         orcout(orcm_debug, "Progress: %s (%g/%g)\n", conn->url, dlnow, dltotal);
     }
-    return 0;
+    return done;
 }
 
 /* Create a new easy handle, and add it to the global curl_multi */
@@ -453,7 +455,9 @@ void print_stats(global_info *global, struct timeval *start,
         sec--;
         usec = 1000000 - (start->tv_usec - stop->tv_usec);
     }
-
+    if (0 != done) {
+        orcoutc(orc_reset, orc_red, "Ctrl+c detected!\n");
+    }
     orcoutc(orc_reset, orc_red, "Downloaded:     ");
     orcout(orcm_quiet, "%.2Lf %s\n", byte_to_human_size(global->total_bytes),
                  byte_to_human_suffix(global->total_bytes));
@@ -492,7 +496,16 @@ void add_first_call(arguments *arg, global_info *global) {
     bintree_add(&(global->url_tree), root_url, info);
 }
 
+static void finish(int sig)
+{
+    done = 1;
+}
+
 void crawl(arguments *arg) {
+    // Add Ctrl+c handling
+    done = 0;
+    signal(SIGINT, finish);
+
     global_info global;
     memset(&global, 0, sizeof(global_info));
     char search_name[SEARCH_NAME_LEN];
