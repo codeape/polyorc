@@ -22,6 +22,8 @@ typedef struct _orcstatistics {
     int thread_no;
     int bytes_sec;
     unsigned long long total_bytes;
+    unsigned int hits_sec;
+    unsigned int hits;
 } orcstatistics;
 
 #endif

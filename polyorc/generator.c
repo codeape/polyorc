@@ -50,6 +50,7 @@ typedef struct _global_info {
     int stat_need_sync;
     struct timeval read_time;
     int read_byte_memory;
+    int hits_sec;
     orcstatistics *stat;
     int current;
 } global_info;
@@ -158,6 +159,8 @@ static void check_multi_info(global_info *global) {
                 orcout(orcm_debug, "T%d --> %s\n", global->id, conn->url);
                 new_conn(global);
             }
+            global->stat->hits++;
+            global->hits_sec++;
             /* Cleanups after download */
             free(conn->memory);
             free(conn);
@@ -318,6 +321,8 @@ static size_t write_cb(void *contents, size_t size, size_t nmemb, void *data) {
         conn->global->stat->bytes_sec =
             conn->global->read_byte_memory / timediff;
         conn->global->read_byte_memory = 0;
+        conn->global->stat->hits_sec = conn->global->hits_sec;
+        conn->global->hits_sec = 0;
         printf("%f %d\n", timediff, conn->global->stat->bytes_sec);
         gettimeofday(&(conn->global->read_time), 0);
         //sync_mmap_ifused(conn->global);

@@ -157,6 +157,8 @@ void display_data() {
     }
     unsigned long long sum = 0;
     unsigned long long sum_bsec = 0;
+    unsigned int sum_hits = 0;
+    unsigned int sum_hits_sec = 0;
     while (0 != ptr) {
         mvprintw(row, 0, "Thread %d", ptr->stat->thread_no);
 
@@ -184,21 +186,28 @@ void display_data() {
                  byte_to_human_size(ptr->stat->total_bytes),
                  byte_to_human_suffix(ptr->stat->total_bytes));
 
-        mvprintw(row, 27, "%.2Lf %s/s",
+        mvprintw(row, 36, "%.2Lf %s/s",
                  byte_to_human_size(ptr->stat->bytes_sec),
                  byte_to_human_suffix(ptr->stat->bytes_sec));
 
+        mvprintw(row, 56, "%d d/s", ptr->stat->hits_sec);
+        mvprintw(row, 65, "%d d", ptr->stat->hits);
+
         sum += ptr->stat->total_bytes;
         sum_bsec += ptr->stat->bytes_sec;
+        sum_hits += ptr->stat->hits;
+        sum_hits_sec += ptr->stat->hits_sec;
 
         ptr = ptr->next;
         row++;
     }
     mvprintw(height - 1, 0, "Sum");
     mvprintw(height - 1, 16, "%.2Lf %s", byte_to_human_size(sum),
-             byte_to_human_suffix(sum));
-    mvprintw(height - 1, 27, "%.2Lf %s/s", byte_to_human_size(sum_bsec),
-             byte_to_human_suffix(sum_bsec));
+                         byte_to_human_suffix(sum));
+    mvprintw(height - 1, 36, "%.2Lf %s/s", byte_to_human_size(sum_bsec),
+                         byte_to_human_suffix(sum_bsec));
+    mvprintw(height - 1, 56, "%d d/s", sum_hits_sec);
+    mvprintw(height - 1, 65, "%d d", sum_hits);
 }
 
 static void finish(int sig)
